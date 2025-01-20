@@ -1,0 +1,51 @@
+CC = gcc -m32 -pthread
+CFLAGS = -g -fPIC -m32 -Wall -Werror -Wno-unused-but-set-variable -Wno-unused-variable -Wno-unused-function -D_GNU_SOURCE -Wno-char-subscripts
+LD = gcc -m32
+LDFLAGS = -Wl,-z,defs -rdynamic -static-libgcc -lc -ldl -lGL -lglut -lX11 -lSDL2 -lm -lpthread -shared -nostdlib -lasound -L./src/libxdiff -lxdiff
+
+BUILD = build
+
+XDIFF_SRCS = xdiffi.c xprepare.c xpatchi.c xmerge3.c xemit.c xmissing.c xutils.c \
+             xadler32.c xbdiff.c xbpatchi.c xversion.c xalloc.c xrabdiff.c
+
+XDIFF_OBJS = $(patsubst %.c,src/libxdiff/xdiff/%.o,$(XDIFF_SRCS))
+
+OBJS := $(patsubst %.c,%.o,$(wildcard src/lindbergh/*.c))
+OBJS := $(filter-out src/lindbergh/lindbergh.o, $(OBJS))
+
+all: lindbergh libxdiff.a lindbergh.so libsegaapi.so libkswapapi.so libposixtime.so
+
+lindbergh: src/lindbergh/lindbergh.c src/lindbergh/log.c src/lindbergh/log.h src/lindbergh/jvs.c src/lindbergh/jvs.h src/lindbergh/config.h src/lindbergh/config.c src/lindbergh/evdevinput.h src/lindbergh/evdevinput.c
+	mkdir -p $(BUILD)
+	$(CC) src/lindbergh/lindbergh.c src/lindbergh/log.h src/lindbergh/log.c src/lindbergh/jvs.h src/lindbergh/jvs.c src/lindbergh/config.h src/lindbergh/config.c src/lindbergh/evdevinput.c src/lindbergh/evdevinput.h -o $(BUILD)/lindbergh -lm
+
+libxdiff.a: $(XDIFF_OBJS)
+	mkdir -p $(BUILD)
+	ar rcs src/libxdiff/libxdiff.a $(XDIFF_OBJS)
+
+src/libxdiff/xdiff/%.o: src/libxdiff/xdiff/%.c
+	$(CC) -DHAVE_CONFIG_H -fPIC -c $< -o $@
+
+lindbergh.so: $(OBJS)
+	mkdir -p $(BUILD)
+	$(LD) $(OBJS) $(LDFLAGS) -o $(BUILD)/lindbergh.so
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+libsegaapi.so: src/libsegaapi/libsegaapi.o
+	gcc -m32 -O0 -g src/libsegaapi/libsegaapi.c -L/usr/lib32 -lFAudio -fPIC -shared -o $(BUILD)/libsegaapi.so
+
+libkswapapi.so: src/libkswapapi/libkswapapi.o
+	$(CC) src/libkswapapi/libkswapapi.o -fPIC -shared -o $(BUILD)/libkswapapi.so
+
+libposixtime.so:
+	$(CC) src/libposixtime/libposixtime.c src/libposixtime/libposixtime.h -m32 -shared -o $(BUILD)/libposixtime.so
+	ln -s -f libposixtime.so $(BUILD)/libposixtime.so.1
+	ln -s -f libposixtime.so $(BUILD)/libposixtime.so.2.4
+
+# Clean rule
+clean:
+	rm -rf $(BUILD)
+	rm -f src/lindbergh/*.o
+	rm -f src/libsegaapi/*.o
