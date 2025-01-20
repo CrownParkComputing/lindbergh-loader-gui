@@ -3,50 +3,45 @@
 
 #include <QMainWindow>
 #include <QTableWidget>
+#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QLabel>
 #include <QProcess>
-#include <QSettings>
-#include <QCheckBox>
-#include <QMap>
-#include <QPlainTextEdit>
+#include <QHeaderView>
 #include "gamedata.h"
 
-class MainWindow : public QMainWindow {
+class MainWindow : public QMainWindow
+{
     Q_OBJECT
 
 public:
-    MainWindow(QWidget *parent = nullptr);
+    explicit MainWindow(const QString &loaderPath, QWidget *parent = nullptr);
     ~MainWindow();
 
+protected:
+    bool eventFilter(QObject *obj, QEvent *event) override;
+
 private slots:
-    void showSetup();
     void showSettings();
-    void removeGame(const QString &gameKey);
     void launchGame(const QString &gameKey, bool testMode);
     void editConfig(const QString &gameKey);
+    void clearConsole();
     void handleProcessOutput();
     void handleProcessError(QProcess::ProcessError error);
-    void clearConsole();
 
 private:
-    void setupUI();
-    void loadGames();
-    void saveGames();
+    void loadSettings();
     void updateGameTable();
     bool checkSetup();
     void appendToConsole(const QString &text, bool error = false);
 
-    QTableWidget *gameTable;
-    QPushButton *setupButton;
-    QPushButton *settingsButton;
-    QPushButton *clearConsoleButton;
-    QLabel *statusLabel;
-    QPlainTextEdit *consoleOutput;
-    QProcess *gameProcess;
-    QMap<QString, GameInfo> configuredGames;
     QString loaderPath;
+    QTableWidget *gameTable;
+    QPlainTextEdit *consoleOutput;
+    QMap<QString, GameInfo> configuredGames;
+    QProcess *gameProcess;
     QString currentGameKey;
+    QPoint dragPosition;
 };
 
 #endif // MAINWINDOW_H

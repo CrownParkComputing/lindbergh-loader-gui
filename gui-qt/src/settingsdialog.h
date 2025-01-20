@@ -7,12 +7,13 @@
 #include <QMap>
 #include "gamedata.h"
 
-class SettingsDialog : public QDialog {
+class SettingsDialog : public QDialog
+{
     Q_OBJECT
 
 public:
     explicit SettingsDialog(const QString &loaderPath, QWidget *parent = nullptr);
-    QMap<QString, GameInfo> getConfiguredGames() const { return configuredGames; }
+    QMap<QString, GameInfo> getConfiguredGames() const;
 
 private slots:
     void selectGamePath();
@@ -20,16 +21,13 @@ private slots:
     void saveSettings();
 
 private:
-    void setupUI();
     void loadSettings();
-    void updateTable();
+    void updateGameTable();
     bool copyGameFiles(const QString &gamePath);
 
-    QTableWidget *gamesTable;
-    QPushButton *saveButton;
-    QPushButton *cancelButton;
-    QMap<QString, GameInfo> configuredGames;
+    QTableWidget *gameTable;
     QString loaderPath;
+    QMap<QString, GameInfo> configuredGames;
 };
 
 #endif // SETTINGSDIALOG_H

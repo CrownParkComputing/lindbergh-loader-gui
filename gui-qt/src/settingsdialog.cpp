@@ -1,103 +1,116 @@
 #include "settingsdialog.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QHeaderView>
+#include <QLabel>
+#include <QPushButton>
 #include <QFileDialog>
-#include <QSettings>
+#include <QStandardPaths>
 #include <QMessageBox>
-#include <QFile>
+#include <QHeaderView>
+#include <QSettings>
 #include <QDir>
+#include <QFile>
 
-SettingsDialog::SettingsDialog(const QString &sourcePath, QWidget *parent)
+SettingsDialog::SettingsDialog(const QString &loaderPath, QWidget *parent)
     : QDialog(parent)
-    , loaderPath(sourcePath)
+    , loaderPath(loaderPath)
 {
-    setupUI();
-    loadSettings();
-}
+    setWindowTitle(tr("Game Settings"));
+    resize(800, 600);
 
-void SettingsDialog::setupUI()
-{
-    setWindowTitle(tr("Lindbergh Game Settings"));
-    setMinimumSize(800, 600);
+    QVBoxLayout *layout = new QVBoxLayout(this);
 
-    QVBoxLayout *mainLayout = new QVBoxLayout(this);
-
-    // Create games table
-    gamesTable = new QTableWidget(this);
-    gamesTable->setColumnCount(6);
-    gamesTable->setHorizontalHeaderLabels({
-        tr("Game Name"),
-        tr("Code"),
-        tr("DVP Code"),
-        tr("Path"),
-        tr("Configure"),
+    // Create game table
+    gameTable = new QTableWidget(this);
+    gameTable->setColumnCount(4);
+    gameTable->setHorizontalHeaderLabels({
+        tr("Game"), 
+        tr("Path"), 
+        tr("Setup"), 
         tr("Install")
     });
-    gamesTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
-    gamesTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
-    gamesTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
-    gamesTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Stretch);
-    gamesTable->horizontalHeader()->setSectionResizeMode(4, QHeaderView::ResizeToContents);
-    gamesTable->horizontalHeader()->setSectionResizeMode(5, QHeaderView::ResizeToContents);
-    gamesTable->setSelectionBehavior(QAbstractItemView::SelectRows);
-    gamesTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    gameTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+    gameTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+    gameTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+    gameTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
+    gameTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    gameTable->setSelectionMode(QAbstractItemView::SingleSelection);
+    gameTable->verticalHeader()->setVisible(false);
 
     // Buttons
     QHBoxLayout *buttonLayout = new QHBoxLayout();
-    saveButton = new QPushButton(tr("Save"), this);
-    cancelButton = new QPushButton(tr("Cancel"), this);
+    QPushButton *okButton = new QPushButton(tr("Save"), this);
+    QPushButton *cancelButton = new QPushButton(tr("Cancel"), this);
     buttonLayout->addStretch();
-    buttonLayout->addWidget(saveButton);
+    buttonLayout->addWidget(okButton);
     buttonLayout->addWidget(cancelButton);
 
-    mainLayout->addWidget(gamesTable);
-    mainLayout->addLayout(buttonLayout);
+    layout->addWidget(gameTable);
+    layout->addLayout(buttonLayout);
 
-    // Connect signals
-    connect(saveButton, &QPushButton::clicked, this, &SettingsDialog::saveSettings);
+    connect(okButton, &QPushButton::clicked, this, &SettingsDialog::saveSettings);
     connect(cancelButton, &QPushButton::clicked, this, &QDialog::reject);
+
+    // Initialize with default games and load settings
+    configuredGames = GameDatabase::getDefaultGames();
+    loadSettings();
+    updateGameTable();
 }
 
 void SettingsDialog::loadSettings()
 {
     QSettings settings("LindberghLoader", "GUI");
-    configuredGames = GameDatabase::getDefaultGames();
-
-    // Load saved paths
     settings.beginGroup("GamePaths");
     for (auto it = configuredGames.begin(); it != configuredGames.end(); ++it) {
         it.value().path = settings.value(it.key()).toString();
     }
     settings.endGroup();
-
-    updateTable();
 }
 
-void SettingsDialog::updateTable()
+void SettingsDialog::saveSettings()
 {
-    gamesTable->setRowCount(configuredGames.size());
+    QSettings settings("LindberghLoader", "GUI");
+    settings.beginGroup("GamePaths");
+    for (auto it = configuredGames.begin(); it != configuredGames.end(); ++it) {
+        if (!it.value().path.isEmpty()) {
+            settings.setValue(it.key(), it.value().path);
+        }
+    }
+    settings.endGroup();
+    accept();
+}
+
+void SettingsDialog::updateGameTable()
+{
+    gameTable->setRowCount(configuredGames.size());
     int row = 0;
+
     for (auto it = configuredGames.begin(); it != configuredGames.end(); ++it, ++row) {
         const GameInfo &game = it.value();
-        
-        gamesTable->setItem(row, 0, new QTableWidgetItem(game.name));
-        gamesTable->setItem(row, 1, new QTableWidgetItem(game.code));
-        gamesTable->setItem(row, 2, new QTableWidgetItem(game.dvpCode));
-        gamesTable->setItem(row, 3, new QTableWidgetItem(game.path));
 
-        // Path selection button
-        QPushButton *selectButton = new QPushButton(tr("Select Path"), this);
-        selectButton->setProperty("gameKey", it.key());
-        connect(selectButton, &QPushButton::clicked, this, &SettingsDialog::selectGamePath);
-        gamesTable->setCellWidget(row, 4, selectButton);
+        // Game name
+        QTableWidgetItem *nameItem = new QTableWidgetItem(game.displayName);
+        nameItem->setData(Qt::UserRole, it.key());
+        gameTable->setItem(row, 0, nameItem);
+
+        // Path
+        QTableWidgetItem *pathItem = new QTableWidgetItem(game.path);
+        pathItem->setData(Qt::UserRole, it.key());
+        gameTable->setItem(row, 1, pathItem);
+
+        // Setup button
+        QPushButton *setupButton = new QPushButton(tr("Set Path"), this);
+        setupButton->setProperty("gameKey", it.key());
+        setupButton->setProperty("row", row);
+        connect(setupButton, &QPushButton::clicked, this, &SettingsDialog::selectGamePath);
+        gameTable->setCellWidget(row, 2, setupButton);
 
         // Install button
         QPushButton *installButton = new QPushButton(tr("Install"), this);
         installButton->setProperty("gameKey", it.key());
         installButton->setEnabled(!game.path.isEmpty());
         connect(installButton, &QPushButton::clicked, this, &SettingsDialog::installGame);
-        gamesTable->setCellWidget(row, 5, installButton);
+        gameTable->setCellWidget(row, 3, installButton);
     }
 }
 
@@ -107,12 +120,30 @@ void SettingsDialog::selectGamePath()
     if (!button) return;
 
     QString gameKey = button->property("gameKey").toString();
+    int row = button->property("row").toInt();
     if (!configuredGames.contains(gameKey)) return;
 
-    QString dir = QFileDialog::getExistingDirectory(this, tr("Select Game Directory"));
-    if (!dir.isEmpty()) {
-        configuredGames[gameKey].path = dir;
-        updateTable();
+    QString path = QFileDialog::getExistingDirectory(
+        this,
+        tr("Select Game Directory"),
+        QStandardPaths::writableLocation(QStandardPaths::HomeLocation),
+        QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks
+    );
+
+    if (!path.isEmpty()) {
+        configuredGames[gameKey].path = path;
+        gameTable->item(row, 1)->setText(path);
+        QTableWidgetItem* pathItem = gameTable->item(row, 1);
+        if (pathItem) {
+            pathItem->setText(path);
+        }
+        
+        // Enable install button
+        if (QWidget *widget = gameTable->cellWidget(row, 3)) {
+            if (QPushButton *installButton = qobject_cast<QPushButton*>(widget)) {
+                installButton->setEnabled(true);
+            }
+        }
     }
 }
 
@@ -178,16 +209,7 @@ bool SettingsDialog::copyGameFiles(const QString &gamePath)
     return true;
 }
 
-void SettingsDialog::saveSettings()
+QMap<QString, GameInfo> SettingsDialog::getConfiguredGames() const
 {
-    QSettings settings("LindberghLoader", "GUI");
-    settings.beginGroup("GamePaths");
-    for (auto it = configuredGames.begin(); it != configuredGames.end(); ++it) {
-        if (!it.value().path.isEmpty()) {
-            settings.setValue(it.key(), it.value().path);
-        }
-    }
-    settings.endGroup();
-
-    accept();
+    return configuredGames;
 }

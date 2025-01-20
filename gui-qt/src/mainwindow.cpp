@@ -1,28 +1,120 @@
 #include "mainwindow.h"
 #include "settingsdialog.h"
-#include "setupdialog.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QFileDialog>
-#include <QMessageBox>
-#include <QStandardPaths>
-#include <QDir>
+#include <QLabel>
+#include <QPushButton>
 #include <QStyle>
-#include <QSplitter>
-#include <QDateTime>
-#include <QTextEdit>
-#include <QHeaderView>
+#include <QApplication>
+#include <QProcess>
+#include <QSettings>
+#include <QMessageBox>
+#include <QInputDialog>
+#include <QFileInfo>
+#include <QDir>
+#include <QMouseEvent>
 
-MainWindow::MainWindow(QWidget *parent)
+MainWindow::MainWindow(const QString &loaderPath, QWidget *parent)
     : QMainWindow(parent)
+    , loaderPath(loaderPath)
     , gameProcess(nullptr)
 {
-    setupUI();
-    loadGames();
+    // Initialize game data
+    configuredGames = GameDatabase::getDefaultGames();
+    loadSettings();
+
+    // Set window properties for chromeless design
+    setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
+    setAttribute(Qt::WA_TranslucentBackground);
     
-    if (!checkSetup()) {
-        showSetup();
-    }
+    // Create central widget and layout
+    QWidget *centralWidget = new QWidget(this);
+    setCentralWidget(centralWidget);
+    QVBoxLayout *mainLayout = new QVBoxLayout(centralWidget);
+    mainLayout->setContentsMargins(1, 1, 1, 1);
+    mainLayout->setSpacing(0);
+    
+    // Create title bar
+    QWidget *titleBar = new QWidget(this);
+    titleBar->setObjectName("titleBar");
+    QHBoxLayout *titleLayout = new QHBoxLayout(titleBar);
+    titleLayout->setContentsMargins(10, 5, 10, 5);
+    
+    // Title label
+    QLabel *titleLabel = new QLabel("Lindbergh Loader", this);
+    titleLabel->setObjectName("titleLabel");
+    
+    // Settings button
+    QPushButton *settingsButton = new QPushButton(this);
+    settingsButton->setIcon(style()->standardIcon(QStyle::SP_FileDialogDetailedView));
+    settingsButton->setToolTip(tr("Settings"));
+    settingsButton->setObjectName("titleBarButton");
+    
+    // Exit button
+    QPushButton *exitButton = new QPushButton(this);
+    exitButton->setIcon(style()->standardIcon(QStyle::SP_TitleBarCloseButton));
+    exitButton->setToolTip(tr("Exit"));
+    exitButton->setObjectName("titleBarButton");
+    
+    titleLayout->addWidget(titleLabel);
+    titleLayout->addStretch();
+    titleLayout->addWidget(settingsButton);
+    titleLayout->addWidget(exitButton);
+    
+    // Create game table
+    gameTable = new QTableWidget(this);
+    gameTable->setColumnCount(2);
+    gameTable->setHorizontalHeaderLabels({tr("Game"), tr("Actions")});
+    gameTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
+    gameTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Fixed);
+    gameTable->verticalHeader()->setVisible(false);
+    gameTable->setShowGrid(false);
+    gameTable->setSelectionMode(QAbstractItemView::NoSelection);
+    gameTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    gameTable->setAlternatingRowColors(true);
+    gameTable->setStyleSheet(
+        "QTableWidget { background-color: #2b2b2b; color: #ffffff; border: none; }"
+        "QTableWidget::item { padding: 5px; }"
+        "QTableWidget::item:alternate { background-color: #323232; }"
+        "QHeaderView::section { background-color: #1e1e1e; color: #ffffff; padding: 5px; border: none; }"
+        "QPushButton { background-color: #3d3d3d; color: #ffffff; border: none; padding: 5px; border-radius: 3px; }"
+        "QPushButton:hover { background-color: #4d4d4d; }"
+    );
+    
+    // Create console output
+    consoleOutput = new QPlainTextEdit(this);
+    consoleOutput->setReadOnly(true);
+    consoleOutput->setMaximumHeight(150);
+    consoleOutput->setStyleSheet(
+        "QPlainTextEdit { background-color: #1b1b1b; color: #00ff00; border: none; font-family: monospace; }"
+    );
+    
+    // Add widgets to main layout
+    mainLayout->addWidget(titleBar);
+    mainLayout->addWidget(gameTable);
+    mainLayout->addWidget(consoleOutput);
+    
+    // Connect signals
+    connect(exitButton, &QPushButton::clicked, this, &QMainWindow::close);
+    connect(settingsButton, &QPushButton::clicked, this, &MainWindow::showSettings);
+    
+    // Set window style
+    setStyleSheet(
+        "QMainWindow { background-color: #1b1b1b; }"
+        "#titleBar { background-color: #1e1e1e; }"
+        "#titleLabel { color: #ffffff; font-size: 14px; font-weight: bold; }"
+        "#titleBarButton { background-color: transparent; border: none; padding: 5px; }"
+        "#titleBarButton:hover { background-color: #4d4d4d; }"
+    );
+    
+    // Enable dragging the window by clicking anywhere on the title bar
+    titleBar->installEventFilter(this);
+    
+    // Update game table
+    updateGameTable();
+    
+    // Set window size
+    resize(800, 600);
 }
 
 MainWindow::~MainWindow()
@@ -34,111 +126,64 @@ MainWindow::~MainWindow()
     }
 }
 
-void MainWindow::setupUI()
+bool MainWindow::eventFilter(QObject *obj, QEvent *event)
 {
-    setWindowTitle(tr("Lindbergh Loader GUI"));
-    setMinimumSize(1024, 768);
+    if (event->type() == QEvent::MouseButtonPress) {
+        QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+        if (mouseEvent->button() == Qt::LeftButton) {
+            dragPosition = mouseEvent->globalPosition().toPoint() - frameGeometry().topLeft();
+            return true;
+        }
+    } else if (event->type() == QEvent::MouseMove) {
+        QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+        if (mouseEvent->buttons() & Qt::LeftButton) {
+            move(mouseEvent->globalPosition().toPoint() - dragPosition);
+            return true;
+        }
+    }
+    return QMainWindow::eventFilter(obj, event);
+}
 
-    QWidget *centralWidget = new QWidget(this);
-    setCentralWidget(centralWidget);
-    
-    QVBoxLayout *mainLayout = new QVBoxLayout(centralWidget);
-    
-    // Create a splitter for game table and console
-    QSplitter *splitter = new QSplitter(Qt::Vertical);
-    
-    // Top widget for game table
-    QWidget *topWidget = new QWidget;
-    QVBoxLayout *topLayout = new QVBoxLayout(topWidget);
-    
-    // Game table
-    gameTable = new QTableWidget(this);
-    gameTable->setColumnCount(3);
-    gameTable->setHorizontalHeaderLabels({tr("Game"), tr("Path"), tr("Actions")});
-    gameTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
-    gameTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
-    gameTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Fixed);
-    gameTable->setSelectionBehavior(QAbstractItemView::SelectRows);
-    gameTable->setSelectionMode(QAbstractItemView::SingleSelection);
-    gameTable->verticalHeader()->setVisible(false);
-    gameTable->setShowGrid(false);
-    gameTable->setAlternatingRowColors(true);
-    
-    // Top buttons
-    QHBoxLayout *buttonLayout = new QHBoxLayout();
-    
-    setupButton = new QPushButton(this);
-    setupButton->setIcon(style()->standardIcon(QStyle::SP_FileDialogDetailedView));
-    setupButton->setToolTip(tr("Setup Lindbergh Loader"));
-    connect(setupButton, &QPushButton::clicked, this, &MainWindow::showSetup);
-    
-    settingsButton = new QPushButton(this);
-    settingsButton->setIcon(style()->standardIcon(QStyle::SP_DialogOpenButton));
-    settingsButton->setToolTip(tr("Game Settings"));
-    connect(settingsButton, &QPushButton::clicked, this, &MainWindow::showSettings);
-    
-    buttonLayout->addWidget(setupButton);
-    buttonLayout->addWidget(settingsButton);
-    buttonLayout->addStretch();
-    
-    // Add widgets to top layout
-    topLayout->addLayout(buttonLayout);
-    topLayout->addWidget(gameTable);
-    
-    // Bottom widget for console output
-    QWidget *bottomWidget = new QWidget;
-    QVBoxLayout *bottomLayout = new QVBoxLayout(bottomWidget);
-    
-    // Console header with clear button
-    QHBoxLayout *consoleHeaderLayout = new QHBoxLayout();
-    consoleHeaderLayout->addWidget(new QLabel(tr("Console Output:")));
-    clearConsoleButton = new QPushButton(this);
-    clearConsoleButton->setIcon(style()->standardIcon(QStyle::SP_DialogResetButton));
-    clearConsoleButton->setToolTip(tr("Clear Console"));
-    connect(clearConsoleButton, &QPushButton::clicked, this, &MainWindow::clearConsole);
-    consoleHeaderLayout->addWidget(clearConsoleButton);
-    
-    // Console output
-    consoleOutput = new QPlainTextEdit(this);
-    consoleOutput->setReadOnly(true);
-    consoleOutput->setMaximumBlockCount(1000);
-    QFont consoleFont("Monospace");
-    consoleFont.setStyleHint(QFont::TypeWriter);
-    consoleOutput->setFont(consoleFont);
-    
-    // Status label
-    statusLabel = new QLabel(this);
-    
-    // Add widgets to bottom layout
-    bottomLayout->addLayout(consoleHeaderLayout);
-    bottomLayout->addWidget(consoleOutput);
-    bottomLayout->addWidget(statusLabel);
-    
-    // Add widgets to splitter
-    splitter->addWidget(topWidget);
-    splitter->addWidget(bottomWidget);
-    splitter->setStretchFactor(0, 1);
-    splitter->setStretchFactor(1, 1);
-    
-    // Add splitter to main layout
-    mainLayout->addWidget(splitter);
+void MainWindow::loadSettings()
+{
+    QSettings settings("LindberghLoader", "GUI");
+    settings.beginGroup("GamePaths");
+    for (auto it = configuredGames.begin(); it != configuredGames.end(); ++it) {
+        it.value().path = settings.value(it.key()).toString();
+    }
+    settings.endGroup();
+}
+
+void MainWindow::showSettings()
+{
+    SettingsDialog dialog(loaderPath, this);
+    if (dialog.exec() == QDialog::Accepted) {
+        configuredGames = dialog.getConfiguredGames();
+        updateGameTable();
+    }
 }
 
 void MainWindow::updateGameTable()
 {
-    gameTable->setRowCount(configuredGames.size());
+    gameTable->setRowCount(0);
     int row = 0;
     
-    for (auto it = configuredGames.begin(); it != configuredGames.end(); ++it, ++row) {
+    QMap<QString, GameInfo> games = configuredGames;
+    
+    for (auto it = games.begin(); it != games.end(); ++it) {
         const GameInfo &game = it.value();
         
-        // Game name
-        QTableWidgetItem *nameItem = new QTableWidgetItem(game.name);
-        nameItem->setData(Qt::UserRole, it.key());
-        gameTable->setItem(row, 0, nameItem);
+        // Only show games that have a path configured
+        if (game.path.isEmpty()) {
+            continue;
+        }
         
-        // Path
-        gameTable->setItem(row, 1, new QTableWidgetItem(game.path));
+        gameTable->insertRow(row);
+        
+        // Game name
+        QTableWidgetItem *nameItem = new QTableWidgetItem(game.displayName);
+        nameItem->setFlags(nameItem->flags() & ~Qt::ItemIsEditable);
+        gameTable->setItem(row, 0, nameItem);
         
         // Actions widget
         QWidget *actionsWidget = new QWidget(gameTable);
@@ -149,8 +194,9 @@ void MainWindow::updateGameTable()
         // Play button
         QPushButton *playButton = new QPushButton(actionsWidget);
         playButton->setIcon(style()->standardIcon(QStyle::SP_MediaPlay));
-        playButton->setToolTip(tr("Launch Game"));
+        playButton->setToolTip(tr("Launch %1").arg(game.displayName));
         playButton->setProperty("gameKey", it.key());
+        playButton->setStyleSheet("QPushButton { padding: 5px; }");
         connect(playButton, &QPushButton::clicked, this, [this, key = it.key()]() {
             launchGame(key, false);
         });
@@ -158,8 +204,9 @@ void MainWindow::updateGameTable()
         // Test button
         QPushButton *testButton = new QPushButton(actionsWidget);
         testButton->setIcon(style()->standardIcon(QStyle::SP_MediaSeekForward));
-        testButton->setToolTip(tr("Launch Test Mode"));
+        testButton->setToolTip(tr("Launch %1 (Test Mode)").arg(game.displayName));
         testButton->setProperty("gameKey", it.key());
+        testButton->setStyleSheet("QPushButton { padding: 5px; }");
         connect(testButton, &QPushButton::clicked, this, [this, key = it.key()]() {
             launchGame(key, true);
         });
@@ -167,31 +214,23 @@ void MainWindow::updateGameTable()
         // Edit config button
         QPushButton *editButton = new QPushButton(actionsWidget);
         editButton->setIcon(style()->standardIcon(QStyle::SP_FileDialogDetailedView));
-        editButton->setToolTip(tr("Edit Configuration"));
+        editButton->setToolTip(tr("Edit %1 Configuration").arg(game.displayName));
         editButton->setProperty("gameKey", it.key());
+        editButton->setStyleSheet("QPushButton { padding: 5px; }");
         connect(editButton, &QPushButton::clicked, this, [this, key = it.key()]() {
             editConfig(key);
-        });
-        
-        // Delete button
-        QPushButton *deleteButton = new QPushButton(actionsWidget);
-        deleteButton->setIcon(style()->standardIcon(QStyle::SP_TrashIcon));
-        deleteButton->setToolTip(tr("Remove Game"));
-        deleteButton->setProperty("gameKey", it.key());
-        connect(deleteButton, &QPushButton::clicked, this, [this, key = it.key()]() {
-            removeGame(key);
         });
         
         actionsLayout->addWidget(playButton);
         actionsLayout->addWidget(testButton);
         actionsLayout->addWidget(editButton);
-        actionsLayout->addWidget(deleteButton);
         actionsLayout->addStretch();
         
-        gameTable->setCellWidget(row, 2, actionsWidget);
+        gameTable->setCellWidget(row, 1, actionsWidget);
+        row++;
     }
     
-    gameTable->setColumnWidth(2, 200); // Fixed width for actions column
+    gameTable->setColumnWidth(1, 150); // Fixed width for actions column
 }
 
 void MainWindow::editConfig(const QString &gameKey)
@@ -201,251 +240,30 @@ void MainWindow::editConfig(const QString &gameKey)
     const GameInfo &game = configuredGames[gameKey];
     QString configPath = QDir(game.path).filePath("lindbergh.conf");
     
-    if (!QFile::exists(configPath)) {
-        QMessageBox::critical(this, tr("Error"),
-                            tr("Configuration file not found: %1").arg(configPath));
-        return;
-    }
-    
-    // Create and show config editor dialog
-    QDialog dialog(this);
-    dialog.setWindowTitle(tr("Edit Configuration - %1").arg(game.name));
-    dialog.resize(800, 600);
-    
-    QVBoxLayout *layout = new QVBoxLayout(&dialog);
-    
-    QTextEdit *editor = new QTextEdit(&dialog);
-    editor->setFont(QFont("Monospace"));
-    
-    // Load config file
+    QString content;
     QFile file(configPath);
-    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        editor->setPlainText(QString::fromUtf8(file.readAll()));
+    if (file.exists() && file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        content = QString::fromUtf8(file.readAll());
         file.close();
     }
     
-    // Dialog buttons
-    QHBoxLayout *buttonLayout = new QHBoxLayout();
-    QPushButton *saveButton = new QPushButton(tr("Save"), &dialog);
-    QPushButton *cancelButton = new QPushButton(tr("Cancel"), &dialog);
-    buttonLayout->addStretch();
-    buttonLayout->addWidget(saveButton);
-    buttonLayout->addWidget(cancelButton);
+    bool ok;
+    QString newContent = QInputDialog::getMultiLineText(
+        this,
+        tr("Edit Configuration"),
+        tr("Configuration for %1:").arg(game.displayName),
+        content,
+        &ok
+    );
     
-    layout->addWidget(editor);
-    layout->addLayout(buttonLayout);
-    
-    connect(saveButton, &QPushButton::clicked, &dialog, [&dialog, editor, configPath, this]() {
+    if (ok && newContent != content) {
         QFile file(configPath);
         if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-            file.write(editor->toPlainText().toUtf8());
+            file.write(newContent.toUtf8());
             file.close();
-            dialog.accept();
-        } else {
-            QMessageBox::critical(this, tr("Error"),
-                                tr("Failed to save configuration file: %1").arg(configPath));
-        }
-    });
-    
-    connect(cancelButton, &QPushButton::clicked, &dialog, &QDialog::reject);
-    
-    dialog.exec();
-}
-
-void MainWindow::removeGame(const QString &gameKey)
-{
-    if (!configuredGames.contains(gameKey)) return;
-    
-    const GameInfo &game = configuredGames[gameKey];
-    if (QMessageBox::question(this, tr("Remove Game"),
-                            tr("Remove %1 from the list?").arg(game.name)) == QMessageBox::Yes) {
-        configuredGames[gameKey].path.clear();
-        saveGames();
-        updateGameTable();
-    }
-}
-
-void MainWindow::launchGame(const QString &gameKey, bool testMode)
-{
-    if (!checkSetup()) {
-        QMessageBox::warning(this, tr("Setup Required"),
-                           tr("Please complete the Lindbergh Loader setup first."));
-        showSetup();
-        return;
-    }
-
-    if (!configuredGames.contains(gameKey)) {
-        QMessageBox::critical(this, tr("Error"),
-                            tr("Invalid game selection!"));
-        return;
-    }
-    
-    const GameInfo &game = configuredGames[gameKey];
-    if (!QDir(game.path).exists()) {
-        QMessageBox::critical(this, tr("Error"),
-                            tr("Game directory not found: %1").arg(game.path));
-        return;
-    }
-    
-    // Kill any existing process
-    if (gameProcess) {
-        gameProcess->kill();
-        gameProcess->waitForFinished();
-        delete gameProcess;
-    }
-    
-    // Create new process
-    gameProcess = new QProcess(this);
-    gameProcess->setWorkingDirectory(game.path);
-    currentGameKey = gameKey;
-    
-    // Set environment variables
-    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-    env.insert("LD_LIBRARY_PATH", QString("%1:/usr/lib32:$LD_LIBRARY_PATH").arg(loaderPath + "/build"));
-    env.insert("LD_PRELOAD", QString("%1/lindbergh.so").arg(loaderPath + "/build"));
-    gameProcess->setProcessEnvironment(env);
-    
-    // Connect signals for output handling
-    connect(gameProcess, &QProcess::readyReadStandardOutput, this, &MainWindow::handleProcessOutput);
-    connect(gameProcess, &QProcess::readyReadStandardError, this, &MainWindow::handleProcessOutput);
-    connect(gameProcess, &QProcess::errorOccurred, this, &MainWindow::handleProcessError);
-    
-    connect(gameProcess, &QProcess::started, this, [this, game, testMode]() {
-        statusLabel->setText(tr("%1 running in %2 mode...")
-                           .arg(game.name)
-                           .arg(testMode ? "test" : "normal"));
-        appendToConsole(tr("Starting %1 in %2 mode...")
-                       .arg(game.name)
-                       .arg(testMode ? "test" : "normal"));
-    });
-    
-    connect(gameProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            this, [this](int exitCode, QProcess::ExitStatus exitStatus) {
-        const GameInfo &game = configuredGames[currentGameKey];
-        statusLabel->setText(tr("Game finished."));
-        QString exitMsg = tr("%1 finished with exit code: %2").arg(game.name).arg(exitCode);
-        appendToConsole(exitMsg, exitCode != 0);
-        currentGameKey.clear();
-    });
-    
-    // Start the game
-    QStringList arguments;
-    arguments << QString("%1/build/lindbergh").arg(loaderPath);
-    if (testMode) {
-        arguments << "-t";
-    }
-    gameProcess->start("linux32", arguments);
-}
-
-void MainWindow::loadGames()
-{
-    QSettings settings("LindberghLoader", "GUI");
-    configuredGames = GameDatabase::getDefaultGames();
-    
-    // Load saved paths
-    settings.beginGroup("GamePaths");
-    for (auto it = configuredGames.begin(); it != configuredGames.end(); ++it) {
-        it.value().path = settings.value(it.key()).toString();
-    }
-    settings.endGroup();
-    
-    updateGameTable();
-}
-
-void MainWindow::saveGames()
-{
-    QSettings settings("LindberghLoader", "GUI");
-    settings.beginGroup("GamePaths");
-    for (auto it = configuredGames.begin(); it != configuredGames.end(); ++it) {
-        if (!it.value().path.isEmpty()) {
-            settings.setValue(it.key(), it.value().path);
+            appendToConsole(tr("Configuration saved for '%1'").arg(game.displayName));
         }
     }
-    settings.endGroup();
-}
-
-void MainWindow::showSetup()
-{
-    SetupDialog dialog(this);
-    if (dialog.exec() == QDialog::Accepted) {
-        loaderPath = dialog.getLoaderPath();
-        QSettings settings("LindberghLoader", "GUI");
-        settings.setValue("loaderPath", loaderPath);
-    }
-}
-
-void MainWindow::showSettings()
-{
-    if (!checkSetup()) {
-        QMessageBox::warning(this, tr("Setup Required"),
-                           tr("Please complete the Lindbergh Loader setup first."));
-        showSetup();
-        return;
-    }
-
-    SettingsDialog dialog(loaderPath, this);
-    if (dialog.exec() == QDialog::Accepted) {
-        configuredGames = dialog.getConfiguredGames();
-        updateGameTable();
-    }
-}
-
-void MainWindow::appendToConsole(const QString &text, bool error)
-{
-    QString timestamp = QDateTime::currentDateTime().toString("hh:mm:ss");
-    QString coloredText;
-    if (error) {
-        coloredText = QString("<span style='color:red'>[%1] %2</span>").arg(timestamp, text.toHtmlEscaped());
-    } else {
-        coloredText = QString("[%1] %2").arg(timestamp, text.toHtmlEscaped());
-    }
-    consoleOutput->appendHtml(coloredText);
-}
-
-void MainWindow::handleProcessOutput()
-{
-    QProcess *process = qobject_cast<QProcess*>(sender());
-    if (!process) return;
-
-    // Handle stdout
-    while (process->canReadLine()) {
-        QString line = QString::fromUtf8(process->readLine()).trimmed();
-        if (!line.isEmpty()) {
-            appendToConsole(line);
-        }
-    }
-
-    // Handle stderr
-    QString errorOutput = QString::fromUtf8(process->readAllStandardError()).trimmed();
-    if (!errorOutput.isEmpty()) {
-        appendToConsole(errorOutput, true);
-    }
-}
-
-void MainWindow::handleProcessError(QProcess::ProcessError error)
-{
-    QString errorMessage;
-    switch (error) {
-        case QProcess::FailedToStart:
-            errorMessage = tr("Failed to start the game process.");
-            break;
-        case QProcess::Crashed:
-            errorMessage = tr("Game process crashed.");
-            break;
-        case QProcess::Timedout:
-            errorMessage = tr("Process timed out.");
-            break;
-        case QProcess::WriteError:
-            errorMessage = tr("Write error occurred.");
-            break;
-        case QProcess::ReadError:
-            errorMessage = tr("Read error occurred.");
-            break;
-        default:
-            errorMessage = tr("Unknown error occurred.");
-            break;
-    }
-    appendToConsole(errorMessage, true);
 }
 
 void MainWindow::clearConsole()
@@ -453,19 +271,111 @@ void MainWindow::clearConsole()
     consoleOutput->clear();
 }
 
-bool MainWindow::checkSetup()
+void MainWindow::handleProcessOutput()
 {
-    QSettings settings("LindberghLoader", "GUI");
-    loaderPath = settings.value("loaderPath").toString();
+    QProcess *process = qobject_cast<QProcess*>(sender());
+    if (!process) return;
     
-    if (loaderPath.isEmpty()) {
-        return false;
+    // Read standard output
+    QByteArray stdoutData = process->readAllStandardOutput();
+    if (!stdoutData.isEmpty()) {
+        appendToConsole(QString::fromUtf8(stdoutData));
     }
-
-    QDir dir(loaderPath);
-    if (!dir.exists() || !QFile::exists(dir.filePath("build/lindbergh"))) {
-        return false;
+    
+    // Read standard error
+    QByteArray stderrData = process->readAllStandardError();
+    if (!stderrData.isEmpty()) {
+        appendToConsole(QString::fromUtf8(stderrData), true);
     }
+}
 
-    return true;
+void MainWindow::handleProcessError(QProcess::ProcessError error)
+{
+    const GameInfo &game = configuredGames[currentGameKey];
+    
+    switch (error) {
+        case QProcess::FailedToStart:
+            appendToConsole(tr("Failed to start game '%1'").arg(game.displayName), true);
+            break;
+        case QProcess::Crashed:
+            appendToConsole(tr("Game '%1' crashed").arg(game.displayName), true);
+            break;
+        default:
+            appendToConsole(tr("Error running game '%1': %2").arg(game.displayName).arg(error), true);
+            break;
+    }
+    
+    currentGameKey.clear();
+}
+
+void MainWindow::appendToConsole(const QString &text, bool error)
+{
+    QTextCharFormat format;
+    format.setForeground(error ? Qt::red : Qt::green);
+    
+    QTextCursor cursor = consoleOutput->textCursor();
+    cursor.movePosition(QTextCursor::End);
+    cursor.insertText(text + "\n", format);
+    consoleOutput->setTextCursor(cursor);
+    consoleOutput->ensureCursorVisible();
+}
+
+void MainWindow::launchGame(const QString &gameKey, bool testMode)
+{
+    if (!configuredGames.contains(gameKey)) return;
+    
+    const GameInfo &game = configuredGames[gameKey];
+    if (game.path.isEmpty()) {
+        QMessageBox::warning(this, tr("Error"),
+                           tr("Please configure the game path first."));
+        return;
+    }
+    
+    if (gameProcess) {
+        QMessageBox::warning(this, tr("Error"),
+                           tr("A game is already running."));
+        return;
+    }
+    
+    // Create and configure the process
+    gameProcess = new QProcess(this);
+    currentGameKey = gameKey;
+    
+    // Set working directory
+    gameProcess->setWorkingDirectory(game.path);
+    
+    // Connect signals for output handling
+    connect(gameProcess, &QProcess::readyReadStandardOutput, this, &MainWindow::handleProcessOutput);
+    connect(gameProcess, &QProcess::readyReadStandardError, this, &MainWindow::handleProcessOutput);
+    connect(gameProcess, &QProcess::errorOccurred, this, &MainWindow::handleProcessError);
+    connect(gameProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+            this, [this, gameKey](int exitCode, QProcess::ExitStatus exitStatus) {
+        const GameInfo &game = configuredGames[gameKey];
+        if (exitStatus == QProcess::NormalExit) {
+            appendToConsole(tr("Game '%1' exited with code %2").arg(game.displayName).arg(exitCode));
+        } else {
+            appendToConsole(tr("Game '%1' crashed!").arg(game.displayName), true);
+        }
+        currentGameKey.clear();
+        delete gameProcess;
+        gameProcess = nullptr;
+    });
+    
+    // Clear the console
+    clearConsole();
+    
+    // Prepare command and arguments
+    QString command = QDir(game.path).filePath("lindbergh");
+    QStringList args;
+    if (testMode) {
+        args << "-t";
+    }
+    
+    // Log the launch
+    appendToConsole(tr("Launching game '%1'%2...")
+                   .arg(game.displayName)
+                   .arg(testMode ? tr(" (Test Mode)") : ""));
+    
+    // Start the process
+    gameProcess->start(command, args);
 }
