@@ -1,0 +1,26 @@
+import '../models/game.dart';
+
+final defaultGames = [
+  Game(name: '2 Spicy', id: 'SBMV', dvp: 'DVP-0027'),
+  Game(name: 'After Burner Climax', id: 'SBLR', dvp: 'DVP-0009'),
+  Game(name: 'Ghost Squad Evolution', id: 'SBNJ', dvp: 'DVP-0029'),
+  Game(name: 'Harley Davidson', id: 'SBRG', dvp: 'DVP-5007'),
+  Game(name: 'Hummer Extreme', id: 'SBST', dvp: 'DVP-0079'),
+  Game(name: 'Hummer', id: 'SBQN', dvp: 'DVP-0057'),
+  Game(name: 'Let\'s Go Jungle', id: 'SBLU', dvp: 'DVP-0011'),
+  Game(name: 'Let\'s Go Jungle Special', id: 'SBNR', dvp: 'DVP-0036'),
+  Game(name: 'Outrun 2 SP SDX', id: 'SBMB', dvp: 'DVP-0015'),
+  Game(name: 'R-Tuned', id: 'SBQW', dvp: 'DVP-0060'),
+  Game(name: 'Race TV', id: 'SBPF', dvp: 'DVP-0044'),
+  Game(name: 'Rambo', id: 'SBQL', dvp: 'DVP-0069'),
+  Game(name: 'The House of the Dead 4', id: 'SBLC', dvp: 'DVP-0003'),
+  Game(name: 'The House of the Dead 4 Special', id: 'SBLS', dvp: 'DVP-0010'),
+  Game(name: 'The House of the Dead Ex', id: 'SBRC', dvp: 'DVP-0063'),
+  Game(name: 'Virtua Fighter 5', id: 'SBLM', dvp: 'DVP-0008'),
+  Game(name: 'Virtua Fighter 5 R', id: 'SBQU', dvp: 'DVP-5004'),
+  Game(name: 'Virtua Fighter 5 FS', id: 'SBUV', dvp: 'DVP-5019'),
+  Game(name: 'Initial D 4', id: 'SBNK', dvp: 'DVP-0030'),
+  Game(name: 'Initial D 5', id: 'SBTS', dvp: 'DVP-0075'),
+  Game(name: 'Virtua Tennis 3', id: 'SBKX', dvp: 'DVP-0005'),
+  Game(name: 'Primeval Hunt', id: 'SBPP', dvp: 'DVP-0048'),
+];
