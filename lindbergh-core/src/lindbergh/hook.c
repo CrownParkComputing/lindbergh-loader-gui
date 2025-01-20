@@ -69,7 +69,7 @@ FILE *fileHooks[6] = {NULL, NULL, NULL, NULL, NULL, NULL};
 int fileRead[6] = {0, 0, 0, 0, 0, 0};
 char envpath[100];
 
-uint32_t elf_crc = 0;
+static uint32_t elf_crc = 0;
 
 extern int hummerExtremeShaderFileIndex;
 extern bool cachedShaderFilesLoaded;
@@ -174,7 +174,7 @@ void __attribute__((constructor)) hook_init()
     act.sa_flags = SA_SIGINFO;
     sigaction(SIGSEGV, &act, NULL);
 
-    initConfig();
+    initConfig(elf_crc);
 
     if (getConfig()->fpsLimiter == 1)
     {

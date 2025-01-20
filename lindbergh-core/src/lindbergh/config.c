@@ -1341,7 +1341,7 @@ KeyMapping getDefaultKeymap()
     return defaultKeyMapping;
 }
 
-int initConfig()
+int initConfig(uint32_t elf_crc)
 {
     config.emulateRideboard = 0;
     config.emulateDriveboard = 0;

@@ -7,13 +7,14 @@
 #include "evdevinput.h"
 #include "version.h"
 #include "log.h"
+#include "config.h"
 
 #define LD_LIBRARY_PATH "LD_LIBRARY_PATH"
 #define LD_PRELOAD "LD_PRELOAD"
 #define PRELOAD_FILE_NAME "lindbergh.so"
 #define TEAM "bobbydilley, retrofan, dkeruza-neo, doozer, francesco, rolel, caviar-x"
 
-uint32_t elf_crc = 0;
+uint32_t elf_crc __attribute__((visibility("default"))) = 0;
 
 // List of all lindbergh executables known, not including the test executables
 char *games[] = {"main.exe",
@@ -171,6 +172,12 @@ int main(int argc, char *argv[])
 {
     // Ensure environment variables are set correctly
     setEnvironmentVariables();
+
+    // Initialize configuration with elf_crc
+    if (initConfig(elf_crc) != 0) {
+        log_error("Failed to initialize configuration");
+        return EXIT_FAILURE;
+    }
 
     // Check for --version before directory operations
     if (argc > 1 && strcmp(argv[1], "--version") == 0) {

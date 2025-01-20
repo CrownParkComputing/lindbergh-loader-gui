@@ -132,3 +132,108 @@ This project has been built by referencing various earlier projects and would li
 ## Takedown Notices
 
 The Lindbergh Loader Development Team respects intellectual property rights and is committed to ensuring that no copyrighted material is shared without proper authorization. If you believe that we are infringing on your intellectual property or have any concerns regarding our activities, please email us at bobby [at] dilley [dot] uk. We are more than happy to address any issues and discuss them further.
+
+[![Core Build Status](https://github.com/lindbergh-loader/lindbergh-loader/actions/workflows/lindbergh-core.yml/badge.svg)](https://github.com/lindbergh-loader/lindbergh-loader/actions/workflows/lindbergh-core.yml)
+
+# Lindbergh Core
+
+This project is a fork of the original [Lindbergh Loader](https://github.com/lindbergh-loader/lindbergh-loader) project. All core functionality and intellectual property belongs to the original Lindbergh Loader Development Team.
+
+## Original Project Credits
+- Project: [Lindbergh Loader](https://github.com/lindbergh-loader/lindbergh-loader)
+- Authors: The Lindbergh Loader Development Team
+- License: Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International
+
+If you'd like to support the development work of the original emulator, please consider [becoming a patron](https://www.patreon.com/LindberghLoader).
+
+## About This Fork
+
+This repository contains the core emulation component extracted from the original Lindbergh Loader project. We maintain this separation to provide a cleaner development experience for the GUI frontend while preserving all the original functionality and licensing terms.
+
+All improvements and modifications made in this fork will be contributed back to the original project whenever possible.
+
+## Features
+
+- Full emulation of SEGA Lindbergh hardware
+- JVS (Jamma Video Standard) support
+- Audio emulation with surround sound support
+- Network functionality
+- GPU compatibility with Intel, NVIDIA, and AMD
+
+## Building from Source
+
+### Dependencies
+
+The following 32-bit libraries are required:
+
+#### Arch Linux
+```bash
+# Core dependencies
+sudo pacman -S lib32-freeglut lib32-sdl2 lib32-alsa-lib lib32-glu lib32-libxmu lib32-pipewire net-tools
+
+# AUR packages (using yay)
+yay -S lib32-faudio lib32-libstdc++5
+```
+
+#### Ubuntu/Debian
+```bash
+sudo dpkg --add-architecture i386
+sudo apt-get update
+sudo apt-get install \
+    gcc-multilib \
+    g++-multilib \
+    libstdc++6:i386 \
+    libglu1-mesa:i386 \
+    libgl1-mesa-dev:i386 \
+    libxmu6:i386 \
+    libfreeglut3:i386 \
+    libasound2:i386 \
+    libsdl2-2.0-0:i386
+```
+
+### Building
+
+1. Install dependencies:
+```bash
+./install-dependencies.sh
+```
+
+2. Build the project:
+```bash
+make clean && make
+```
+
+The compiled binaries will be in the `build/` directory:
+- `lindbergh` (main executable)
+- `lindbergh.so` (core library)
+- `libsegaapi.so` (SEGA API implementation)
+- `libkswapapi.so` (memory management)
+- `libposixtime.so` (time management)
+
+## Usage
+
+1. Install the dependencies
+2. Build the project
+3. Configure your game paths
+4. Run the loader with your game
+
+For detailed usage instructions and game-specific configuration, please refer to our [Wiki](https://github.com/lindbergh-loader/lindbergh-loader/wiki).
+
+## License
+
+This project is licensed under Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International. See the LICENSE file for details.
+
+## Contributing
+
+We welcome contributions! Please read our [Contributing Guidelines](CONTRIBUTING.md) before submitting pull requests.
+
+## Support
+
+If you need help, please:
+1. Check our [Wiki](https://github.com/lindbergh-loader/lindbergh-loader/wiki)
+2. Join our [Discord community](https://arcade.community)
+3. [Open an issue](https://github.com/lindbergh-loader/lindbergh-loader/issues) for bugs
+
+## Acknowledgments
+
+Special thanks to all contributors and the arcade preservation community.

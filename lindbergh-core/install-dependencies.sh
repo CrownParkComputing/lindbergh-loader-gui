@@ -19,6 +19,39 @@ if ! command -v yay &> /dev/null; then
     exit 1
 fi
 
+# Enable 32-bit architecture
+sudo dpkg --add-architecture i386
+
+# Update package lists
+sudo pacman -Sy
+
+# Install required 32-bit libraries
+sudo pacman -S --needed \
+    lib32-mesa \
+    lib32-glu \
+    lib32-libglvnd \
+    lib32-libx11 \
+    lib32-libxext \
+    lib32-libxmu \
+    lib32-libxi \
+    lib32-gcc-libs \
+    lib32-glibc \
+    lib32-libstdc++5 \
+    lib32-libxxf86vm \
+    lib32-libxrandr \
+    lib32-libglvnd \
+    lib32-libdbus \
+    linux32
+
+# Create compatibility symlinks
+if [ ! -e "/usr/lib32/libstdc++.so.5" ]; then
+    sudo ln -sf "/usr/lib32/libstdc++.so.6" "/usr/lib32/libstdc++.so.5"
+fi
+
+# Create Lindbergh library directory
+sudo mkdir -p /usr/local/lib/lindbergh
+sudo chmod 755 /usr/local/lib/lindbergh
+
 # Function to install a package
 install_package() {
     local package=$1
@@ -38,8 +71,6 @@ PACKAGES=(
     "lib32-freeglut"
     "lib32-sdl2"
     "lib32-alsa-lib"
-    "lib32-glu"
-    "lib32-libxmu"
     "lib32-pipewire"
     "net-tools"
 )
@@ -52,7 +83,6 @@ done
 echo -e "\n${GREEN}Installing AUR dependencies...${NC}"
 AUR_PACKAGES=(
     "lib32-faudio"
-    "lib32-libstdc++5"
 )
 
 for package in "${AUR_PACKAGES[@]}"; do

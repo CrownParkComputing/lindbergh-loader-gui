@@ -1,11 +1,53 @@
-bld
+# Build directories
 build/
-test/
-tmp/
-*.bin
-/*.conf
-src/lindbergh/*.o
-src/libxdiff/xdiff/*.o
-src/libxdiff/*.a
-src/libkswapapi/*.o
-src/libsegaapi/*.o
+_build/
+*.o
+*.so
+*.a
+
+# CMake files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+
+# Qt-specific
+moc_*.cpp
+qrc_*.cpp
+ui_*.h
+*.qm
+*_autogen/
+
+# IDE files
+.vscode/
+.idea/
+*.user
+*.user.*
+*.sublime-workspace
+*.sublime-project
+
+# OS-specific files
+.DS_Store
+.directory
+.Trash-*
+*~
+
+# Compiled binaries
+lindbergh-core/build/
+lindbergh-gui/build/
+lindbergh-gui/_build/
+
+# Dependencies
+libs/
+external/
+
+# Logs and temporary files
+*.log
+*.tmp
+core.*
+vgcore.*
+
+# Release files
+*.AppImage
+*.tar.gz
+*.zip

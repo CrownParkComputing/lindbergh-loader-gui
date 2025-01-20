@@ -52,6 +52,10 @@
 #include <limits.h>
 #endif /* #if defined(HAVE_LIMITS_H) */
 
+#if defined(HAVE_STDDEF_H)
+#include <stddef.h>
+#endif /* #if defined(HAVE_STDDEF_H) */
+
 
 
 #include "xmacros.h"
@@ -68,4 +72,3 @@
 
 
 #endif /* #if !defined(XINCLUDE_H) */
-
