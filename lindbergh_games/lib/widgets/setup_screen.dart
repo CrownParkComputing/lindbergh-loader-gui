@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:process_run/process_run.dart';
-import 'package:process_run/shell_run.dart';
-import 'dart:io';
-import '../data/core_config_repository.dart';
-import '../data/core_config.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:lindbergh_games/data/core_config_repository.dart';
+import 'package:lindbergh_games/data/core_config.dart';
 
 class SetupScreen extends StatefulWidget {
   const SetupScreen({super.key});
@@ -13,162 +11,64 @@ class SetupScreen extends StatefulWidget {
 }
 
 class _SetupScreenState extends State<SetupScreen> {
-  String? corePath;
-  List<FileSystemEntity>? buildFiles;
-  bool isRunningScript = false;
+  final _formKey = GlobalKey<FormState>();
+  late CoreConfig _config = CoreConfig();
+  late final CoreConfigRepository _configRepository;
 
   @override
   void initState() {
     super.initState();
-    _loadCorePath();
+    _configRepository = CoreConfigRepository();
+    _loadConfig();
   }
 
-  Future<void> _loadCorePath() async {
-    final config = await CoreConfigRepository().loadConfig();
+  Future<void> _loadConfig() async {
+    final config = await _configRepository.loadConfig();
     setState(() {
-      corePath = config.corePath;
+      _config = config;
     });
-    if (corePath != null) {
-      _loadBuildFiles();
-    }
   }
 
-  Future<void> _loadBuildFiles() async {
-    if (corePath == null) return;
-    
-    final buildDir = Directory('$corePath/build');
-    if (await buildDir.exists()) {
-      final files = buildDir.listSync();
-      setState(() {
-        buildFiles = files.where((file) => file.path.endsWith('lindbergh.conf')).toList();
-      });
-    }
-  }
-
-  Future<void> _selectCorePath() async {
-    try {
-      final shell = Shell();
-      
-      // First try zenity
-      var results = await shell.run('zenity --file-selection --directory');
-      
-      // If zenity fails, try kdialog
-      if (results.isEmpty || results.first.exitCode != 0) {
-        results = await shell.run('kdialog --getexistingdirectory');
-      }
-      
-      // If both fail, fallback to terminal input
-      if (results.isEmpty || results.first.exitCode != 0) {
-        print('Please enter the core folder path:');
-        final path = stdin.readLineSync();
-        results = [ProcessResult(0, 0, path ?? '', '')];
-      }
-
-      if (results.isNotEmpty && results.first.stdout.isNotEmpty) {
-        final path = results.first.stdout.trim();
-        print('Selected core path: $path');
-        
-        // Verify the path exists
-        final dir = Directory(path);
-        if (!await dir.exists()) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Selected directory does not exist')),
-          );
-          return;
-        }
-        
-        // Verify the path contains the install script
-        final scriptFile = File('$path/scripts/install_dependencies.sh');
-        if (!await scriptFile.exists()) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Selected directory does not contain install script')),
-          );
-          return;
-        }
-
-        setState(() {
-          corePath = path;
-        });
-        
-        // Save config and verify it was saved
-        final config = CoreConfig(corePath: path);
-        await CoreConfigRepository().saveConfig(config);
-        
-        // Verify the config was saved by loading it back
-        final loadedConfig = await CoreConfigRepository().loadConfig();
-        if (loadedConfig.corePath != path) {
-          throw Exception('Failed to save core path');
-        }
-        
-        _loadBuildFiles();
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Core path saved successfully')),
-        );
-      }
-    } catch (e) {
-      print('Error selecting core path: $e');
+  Future<void> _saveConfig() async {
+    if (_formKey.currentState!.validate()) {
+      _formKey.currentState!.save();
+      await _configRepository.saveConfig(_config);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error saving core path: ${e.toString()}')),
+        const SnackBar(content: Text('Configuration saved')),
       );
     }
   }
 
-  Future<void> _runInstallScript() async {
-    if (corePath == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please set core folder path first')),
-      );
-      return;
-    }
-
-    final scriptPath = '${corePath!}/scripts/install_dependencies.sh';
-    final scriptFile = File(scriptPath);
-    
-    if (!await scriptFile.exists()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Install script not found in core directory')),
-      );
-      return;
-    }
-
-    setState(() {
-      isRunningScript = true;
-    });
-
-    try {
-      final shell = Shell();
-      print('Running install script at: $scriptPath');
-      
-      // Run script with full path instead of cd
-      final result = await shell.run('''
-        "$scriptPath"
-      ''');
-
-      if (result.first.exitCode != 0) {
-        print('Script failed with exit code: ${result.first.exitCode}');
-        print('Stderr: ${result.first.stderr}');
-        print('Stdout: ${result.first.stdout}');
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Script failed: ${result.first.stderr}')),
-        );
-      } else {
-        print('Script completed successfully');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Installation completed successfully')),
-        );
-      }
-    } catch (e) {
-      print('Error running script: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error running script: ${e.toString()}')),
-      );
-    } finally {
-      setState(() {
-        isRunningScript = false;
-      });
-    }
+  Widget _buildPathPicker(String label, String? value, Function(String) onChanged) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8.0),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                value ?? 'No path selected',
+                style: Theme.of(context).textTheme.bodyMedium,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8.0),
+            IconButton(
+              icon: const Icon(Icons.folder),
+              onPressed: () async {
+                final result = await FilePicker.platform.getDirectoryPath();
+                if (result != null) {
+                  onChanged(result);
+                }
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 16.0),
+      ],
+    );
   }
 
   @override
@@ -176,80 +76,50 @@ class _SetupScreenState extends State<SetupScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Setup'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Core Folder: ${corePath ?? 'Not set'}',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _selectCorePath,
-              child: const Text('Set Core Folder Path'),
-            ),
-            const SizedBox(height: 32),
-            if (corePath != null) ...[
-              const Text(
-                'Build Artifacts:',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            children: [
+              _buildPathPicker(
+                'Core Path',
+                _config.corePath,
+                (value) {
+                  setState(() {
+                    _config.corePath = value;
+                  });
+                },
               ),
-              const SizedBox(height: 8),
-              if (buildFiles != null)
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: buildFiles!.length,
-                    itemBuilder: (context, index) {
-                      final file = buildFiles![index];
-                      return ListTile(
-                        title: Text(file.path.split('/').last),
-                        subtitle: Text(file.path),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.edit),
-                          onPressed: () {
-                            _editConfigFile(file.path);
-                          },
-                        ),
-                      );
-                    },
-                  ),
+              if (_config.corePath != null)
+                Text(
+                  'Lindbergh.conf path: ${_config.lindberghConfPath}',
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 16.0),
+              _buildPathPicker(
+                'Install Dependencies Script Path',
+                _config.installDependenciesPath,
+                (value) {
+                  setState(() {
+                    _config.installDependenciesPath = value;
+                  });
+                },
+              ),
+              const SizedBox(height: 32.0),
               ElevatedButton(
-                onPressed: isRunningScript ? null : _runInstallScript,
-                child: isRunningScript
-                    ? const CircularProgressIndicator()
-                    : const Text('Run Install Dependencies Script'),
+                onPressed: _saveConfig,
+                child: const Text('Save Configuration'),
               ),
             ],
-          ],
+          ),
         ),
       ),
     );
-  }
-
-  Future<void> _editConfigFile(String path) async {
-    final shell = Shell();
-    try {
-      // Ensure directory exists
-      final file = File(path);
-      if (!await file.exists()) {
-        await file.create(recursive: true);
-      }
-      
-      // Try xdg-open first, fallback to nano
-      try {
-        await shell.run('xdg-open "$path"');
-      } catch (e) {
-        await shell.run('nano "$path"');
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to open editor: ${e.toString()}')),
-      );
-    }
   }
 }

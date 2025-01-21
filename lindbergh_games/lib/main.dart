@@ -15,25 +15,16 @@ void main() async {
   await windowManager.ensureInitialized();
 
   WindowOptions windowOptions = const WindowOptions(
-    titleBarStyle: TitleBarStyle.hidden,
     size: Size(800, 600),
     minimumSize: Size(400, 300),
     center: true,
+    titleBarStyle: TitleBarStyle.hidden,
   );
 
-  try {
-    await windowManager.waitUntilReadyToShow(windowOptions, () async {
-      await windowManager.show();
-      await windowManager.focus();
-    });
-  } catch (e) {
-    print('Window manager error: $e');
-    // Fallback to basic window management
-    await windowManager.setSize(const Size(800, 600));
-    await windowManager.center();
+  await windowManager.waitUntilReadyToShow(windowOptions, () async {
     await windowManager.show();
     await windowManager.focus();
-  }
+  });
 
   runApp(const MyApp());
 }
@@ -44,7 +35,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Lindbergh Loader GUI',
+      title: 'Lindbergh Games',
       theme: ThemeData(
         brightness: Brightness.light,
         primarySwatch: Colors.blue,
@@ -69,7 +60,7 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
+class _MyHomePageState extends State<MyHomePage> with WindowListener {
   late final GameRepository _gameRepository;
   List<Game> games = [];
   bool _isIconView = true;
@@ -77,8 +68,15 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
+    windowManager.addListener(this);
     _gameRepository = GameRepository();
     _loadGames();
+  }
+
+  @override
+  void dispose() {
+    windowManager.removeListener(this);
+    super.dispose();
   }
 
   Future<void> _loadGames() async {
@@ -138,13 +136,12 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => windowManager.close(),
+        ),
         title: const Text('Lindbergh Games'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.close),
-            onPressed: () => windowManager.close(),
-            tooltip: 'Close',
-          ),
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () {
