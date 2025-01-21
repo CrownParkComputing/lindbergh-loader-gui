@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:process_run/shell.dart';
 import 'package:lindbergh_games/models/game.dart';
 
 class GameSettingsDialog extends StatefulWidget {
@@ -20,6 +20,7 @@ class _GameSettingsDialogState extends State<GameSettingsDialog> {
   late TextEditingController _nameController;
   late TextEditingController _executablePathController;
   late TextEditingController _workingDirectoryController;
+  final Shell _shell = Shell();
 
   @override
   void initState() {
@@ -31,28 +32,24 @@ class _GameSettingsDialogState extends State<GameSettingsDialog> {
         text: widget.game.workingDirectory);
   }
 
-  Future<void> _selectExecutable() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.any,
-      allowMultiple: false,
-      dialogTitle: 'Select Game Executable',
-    );
-
-    if (result != null && result.files.single.path != null) {
+  Future<void> _selectWorkingDirectory() async {
+    final result = await _shell.run('zenity --file-selection --directory --title="Select Working Directory"');
+    if (result.isNotEmpty && result.first.exitCode == 0 && result.first.stdout.isNotEmpty) {
       setState(() {
-        _executablePathController.text = result.files.single.path!;
+        _workingDirectoryController.text = result.first.stdout.trim();
       });
     }
   }
 
-  Future<void> _selectWorkingDirectory() async {
-    final directory = await FilePicker.platform.getDirectoryPath(
-      dialogTitle: 'Select Working Directory',
-    );
-
-    if (directory != null) {
+  Future<void> _selectExecutable() async {
+    final result = await _shell.run('zenity --file-selection --title="Select Game Executable"');
+    if (result.isNotEmpty && result.first.exitCode == 0 && result.first.stdout.isNotEmpty) {
+      final executablePath = result.first.stdout.trim();
       setState(() {
-        _workingDirectoryController.text = directory;
+        _executablePathController.text = executablePath;
+        // Set working directory to executable's parent directory
+        _workingDirectoryController.text = 
+            executablePath.substring(0, executablePath.lastIndexOf('/'));
       });
     }
   }
@@ -73,21 +70,21 @@ class _GameSettingsDialogState extends State<GameSettingsDialog> {
             ),
             const SizedBox(height: 16),
             TextField(
-              controller: _executablePathController,
-              decoration: const InputDecoration(
-                labelText: 'Executable Path',
-              ),
-              readOnly: true,
-              onTap: _selectExecutable,
-            ),
-            const SizedBox(height: 16),
-            TextField(
               controller: _workingDirectoryController,
               decoration: const InputDecoration(
                 labelText: 'Working Directory',
               ),
               readOnly: true,
               onTap: _selectWorkingDirectory,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _executablePathController,
+              decoration: const InputDecoration(
+                labelText: 'Executable Path',
+              ),
+              readOnly: true,
+              onTap: _selectExecutable,
             ),
           ],
         ),
@@ -99,11 +96,11 @@ class _GameSettingsDialogState extends State<GameSettingsDialog> {
         ),
         TextButton(
           onPressed: () {
-            final updatedGame = widget.game.copyWith(
-              name: _nameController.text,
-              executablePath: _executablePathController.text,
-              workingDirectory: _workingDirectoryController.text,
-            );
+              final updatedGame = Game(
+                name: _nameController.text,
+                executablePath: _executablePathController.text,
+                workingDirectory: _workingDirectoryController.text,
+              );
             widget.onSave(updatedGame);
             Navigator.pop(context);
           },

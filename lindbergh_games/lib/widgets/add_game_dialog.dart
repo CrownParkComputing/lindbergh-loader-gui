@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:lindbergh_games/models/game.dart';
 import 'package:lindbergh_games/data/default_games.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:process_run/shell.dart';
 
 class AddGameDialog extends StatefulWidget {
   final List<Game> games;
@@ -19,30 +19,35 @@ class AddGameDialog extends StatefulWidget {
 class _AddGameDialogState extends State<AddGameDialog> {
   Game? _selectedGame;
   String? _executablePath;
-  String? _workingDirectory;
   String? _iconPath;
+  String? _workingDirectory;
 
   Future<void> _pickGameExecutable() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.any,
-    );
-
-    if (result != null) {
+    final shell = Shell();
+    final results = await shell.run('zenity --file-selection --title="Select Game Executable"');
+    if (results.isNotEmpty && results.first.exitCode == 0 && results.first.stdout.isNotEmpty) {
       setState(() {
-        _executablePath = result.files.single.path;
-        _workingDirectory = File(_executablePath!).parent.path;
+        _executablePath = results.first.stdout.trim();
+      });
+    }
+  }
+
+  Future<void> _pickWorkingDirectory() async {
+    final shell = Shell();
+    final results = await shell.run('zenity --file-selection --directory --title="Select Working Directory"');
+    if (results.isNotEmpty && results.first.exitCode == 0 && results.first.stdout.isNotEmpty) {
+      setState(() {
+        _workingDirectory = results.first.stdout.trim();
       });
     }
   }
 
   Future<void> _pickIcon() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-    );
-
-    if (result != null) {
+    final shell = Shell();
+    final results = await shell.run('zenity --file-selection --title="Select Game Icon" --file-filter="Images | *.png *.jpg *.jpeg"');
+    if (results.isNotEmpty && results.first.exitCode == 0 && results.first.stdout.isNotEmpty) {
       setState(() {
-        _iconPath = result.files.single.path;
+        _iconPath = results.first.stdout.trim();
       });
     }
   }
@@ -61,11 +66,11 @@ class _AddGameDialogState extends State<AddGameDialog> {
                 labelText: 'Select Game',
               ),
               items: defaultGames.where((game) => 
-                !widget.games.any((g) => g.id == game.id)
+                !widget.games.any((g) => g.name == game.name)
               ).map((game) {
                 return DropdownMenuItem<Game>(
                   value: game,
-                  child: Text('${game.name} (${game.id})'),
+                  child: Text(game.name),
                 );
               }).toList(),
               onChanged: (game) {
@@ -87,13 +92,20 @@ class _AddGameDialogState extends State<AddGameDialog> {
             ),
             const SizedBox(height: 16),
             ElevatedButton(
+              onPressed: _pickWorkingDirectory,
+              child: const Text('Select Working Directory'),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
               onPressed: _pickIcon,
               child: const Text('Select Game Icon'),
             ),
             const SizedBox(height: 16),
             if (_executablePath != null) ...[
               Text('Executable: $_executablePath'),
-              const SizedBox(height: 8),
+            ],
+            if (_workingDirectory != null) ...[
+              const SizedBox(height: 16),
               Text('Working Directory: $_workingDirectory'),
             ],
             if (_iconPath != null) ...[
@@ -119,9 +131,9 @@ class _AddGameDialogState extends State<AddGameDialog> {
           onPressed: () {
             if (_selectedGame != null && _executablePath != null) {
               final game = _selectedGame!.copyWith(
-                executablePath: _executablePath,
-                workingDirectory: _workingDirectory,
+                executablePath: _executablePath!,
                 iconPath: _iconPath,
+                workingDirectory: _workingDirectory,
               );
               Navigator.pop(context, game);
             }

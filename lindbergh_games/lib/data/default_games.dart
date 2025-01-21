@@ -1,26 +1,114 @@
-import '../models/game.dart';
+import 'package:lindbergh_games/models/game.dart';
 
-final defaultGames = [
-  Game(name: '2 Spicy', id: 'SBMV', dvp: 'DVP-0027'),
-  Game(name: 'After Burner Climax', id: 'SBLR', dvp: 'DVP-0009'),
-  Game(name: 'Ghost Squad Evolution', id: 'SBNJ', dvp: 'DVP-0029'),
-  Game(name: 'Harley Davidson', id: 'SBRG', dvp: 'DVP-5007'),
-  Game(name: 'Hummer Extreme', id: 'SBST', dvp: 'DVP-0079'),
-  Game(name: 'Hummer', id: 'SBQN', dvp: 'DVP-0057'),
-  Game(name: 'Let\'s Go Jungle', id: 'SBLU', dvp: 'DVP-0011'),
-  Game(name: 'Let\'s Go Jungle Special', id: 'SBNR', dvp: 'DVP-0036'),
-  Game(name: 'Outrun 2 SP SDX', id: 'SBMB', dvp: 'DVP-0015'),
-  Game(name: 'R-Tuned', id: 'SBQW', dvp: 'DVP-0060'),
-  Game(name: 'Race TV', id: 'SBPF', dvp: 'DVP-0044'),
-  Game(name: 'Rambo', id: 'SBQL', dvp: 'DVP-0069'),
-  Game(name: 'The House of the Dead 4', id: 'SBLC', dvp: 'DVP-0003'),
-  Game(name: 'The House of the Dead 4 Special', id: 'SBLS', dvp: 'DVP-0010'),
-  Game(name: 'The House of the Dead Ex', id: 'SBRC', dvp: 'DVP-0063'),
-  Game(name: 'Virtua Fighter 5', id: 'SBLM', dvp: 'DVP-0008'),
-  Game(name: 'Virtua Fighter 5 R', id: 'SBQU', dvp: 'DVP-5004'),
-  Game(name: 'Virtua Fighter 5 FS', id: 'SBUV', dvp: 'DVP-5019'),
-  Game(name: 'Initial D 4', id: 'SBNK', dvp: 'DVP-0030'),
-  Game(name: 'Initial D 5', id: 'SBTS', dvp: 'DVP-0075'),
-  Game(name: 'Virtua Tennis 3', id: 'SBKX', dvp: 'DVP-0005'),
-  Game(name: 'Primeval Hunt', id: 'SBPP', dvp: 'DVP-0048'),
+final List<Game> defaultGames = [
+  Game(
+    name: '2 Spicy',
+    executablePath: '/path/to/2spicy/executable',
+    workingDirectory: '/path/to/2spicy',
+  ),
+  Game(
+    name: 'After Burner Climax',
+    executablePath: '/path/to/afterburner/executable',
+    workingDirectory: '/path/to/afterburner',
+  ),
+  Game(
+    name: 'Ghost Squad Evolution',
+    executablePath: '/path/to/ghostsquad/executable',
+    workingDirectory: '/path/to/ghostsquad',
+  ),
+  Game(
+    name: 'Harley Davidson',
+    executablePath: '/path/to/harley/executable',
+    workingDirectory: '/path/to/harley',
+  ),
+  Game(
+    name: 'Hummer Extreme',
+    executablePath: '/path/to/hummerextreme/executable',
+    workingDirectory: '/path/to/hummerextreme',
+  ),
+  Game(
+    name: 'Hummer',
+    executablePath: '/path/to/hummer/executable',
+    workingDirectory: '/path/to/hummer',
+  ),
+  Game(
+    name: "Let's Go Jungle",
+    executablePath: '/path/to/lgj/executable',
+    workingDirectory: '/path/to/lgj',
+  ),
+  Game(
+    name: "Let's Go Jungle Special",
+    executablePath: '/path/to/lgjsp/executable',
+    workingDirectory: '/path/to/lgjsp',
+  ),
+  Game(
+    name: 'Outrun 2 SP SDX',
+    executablePath: '/path/to/outrun/executable',
+    workingDirectory: '/path/to/outrun',
+  ),
+  Game(
+    name: 'R-Tuned',
+    executablePath: '/path/to/rtuned/executable',
+    workingDirectory: '/path/to/rtuned',
+  ),
+  Game(
+    name: 'Race TV',
+    executablePath: '/path/to/racetv/executable',
+    workingDirectory: '/path/to/racetv',
+  ),
+  Game(
+    name: 'Rambo',
+    executablePath: '/path/to/rambo/executable',
+    workingDirectory: '/path/to/rambo',
+  ),
+  Game(
+    name: 'The House of the Dead 4',
+    executablePath: '/path/to/hod4/executable',
+    workingDirectory: '/path/to/hod4',
+  ),
+  Game(
+    name: 'The House of the Dead 4 Special',
+    executablePath: '/path/to/hod4sp/executable',
+    workingDirectory: '/path/to/hod4sp',
+  ),
+  Game(
+    name: 'The House of the Dead Ex',
+    executablePath: '/path/to/hodex/executable',
+    workingDirectory: '/path/to/hodex',
+  ),
+  Game(
+    name: 'Virtua Fighter 5',
+    executablePath: '/path/to/vf5/executable',
+    workingDirectory: '/path/to/vf5',
+  ),
+  Game(
+    name: 'Virtua Fighter 5 R',
+    executablePath: '/path/to/vf5r/executable',
+    workingDirectory: '/path/to/vf5r',
+  ),
+  Game(
+    name: 'Virtua Fighter 5 FS',
+    executablePath: '/path/to/vf5fs/executable',
+    workingDirectory: '/path/to/vf5fs',
+  ),
+  Game(
+    name: 'Initial D 4',
+    executablePath: '/path/to/id4/executable',
+    workingDirectory: '/path/to/id4',
+  ),
+  Game(
+    name: 'Initial D 5',
+    executablePath: '/path/to/id5/executable',
+    workingDirectory: '/path/to/id5',
+  ),
+  Game(
+    name: 'Virtua Tennis 3',
+    executablePath: '/path/to/vt3/executable',
+    workingDirectory: '/path/to/vt3',
+  ),
+  Game(
+    name: 'Primeval Hunt',
+    executablePath: '/path/to/primeval/executable',
+    workingDirectory: '/path/to/primeval',
+  ),
 ];

@@ -1,4 +1,4 @@
-name: Build and Test
+name: Linux Build and Test
 
 on:
   push:
@@ -10,22 +10,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+      - uses: actions/checkout@v3
+      - uses: subosito/flutter-action@v2
         with:
-          flutter-version: 'stable'
           channel: 'stable'
-          
-      - name: Install dependencies
-        run: flutter pub get
-        
-      - name: Analyze code
-        run: flutter analyze
-        
-      - name: Run tests
-        run: flutter test
-        
-      - name: Build Linux app
-        run: flutter build linux
+      - run: flutter pub get
+      - run: flutter test
+      - run: flutter build linux

@@ -1,26 +1,24 @@
 name: lindbergh_games
-description: "A new Flutter project."
+description: A Linux-only Lindbergh games manager
+
 publish_to: 'none'
 
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.6.1
+  sdk: '>=3.0.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
-
-  url_launcher: ^6.1.11
-  url_launcher_linux: ^3.0.1
-  cupertino_icons: ^1.0.8
-  file_picker: ^8.1.7
-  shared_preferences: ^2.3.5
+  shared_preferences: ^2.2.2
+  process_run: ^0.13.0+1
+  window_manager: ^0.3.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^5.0.0
+  flutter_lints: ^2.0.0
 
 flutter:
   uses-material-design: true

@@ -19,6 +19,7 @@ class ConfigEditorDialog extends StatefulWidget {
 class _ConfigEditorDialogState extends State<ConfigEditorDialog> {
   late TextEditingController _configController;
   bool _isLoading = true;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -28,28 +29,39 @@ class _ConfigEditorDialogState extends State<ConfigEditorDialog> {
   }
 
   Future<void> _loadConfig() async {
-    final configPath = widget.game.configFilePath;
-    
-    if (configPath.isNotEmpty) {
-      final file = File(configPath);
-      
-      if (await file.exists()) {
-        final contents = await file.readAsString();
-        _configController.text = contents;
+    try {
+      final workingDir = widget.game.workingDirectory;
+      if (workingDir == null || workingDir.isEmpty) {
+        throw Exception('No working directory set');
       }
+
+      final configFile = File('$workingDir/lindbergh.conf');
+      if (await configFile.exists()) {
+        final contents = await configFile.readAsString();
+        _configController.text = contents;
+      } else {
+        _configController.text = '# Lindbergh Configuration File\n';
+      }
+    } catch (e) {
+      _errorMessage = e.toString();
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
-    
-    setState(() {
-      _isLoading = false;
-    });
   }
 
   Future<void> _saveConfig() async {
-    final configPath = widget.game.configFilePath;
-    
-    if (configPath.isNotEmpty) {
-      final file = File(configPath);
-      await file.writeAsString(_configController.text);
+    try {
+      final workingDir = widget.game.workingDirectory;
+      if (workingDir == null || workingDir.isEmpty) {
+        throw Exception('No working directory set');
+      }
+
+      final configFile = File('$workingDir/lindbergh.conf');
+      await configFile.writeAsString(_configController.text);
+    } catch (e) {
+      _errorMessage = e.toString();
     }
   }
 
@@ -59,16 +71,18 @@ class _ConfigEditorDialogState extends State<ConfigEditorDialog> {
       title: const Text('Edit Config'),
       content: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              child: TextField(
-                controller: _configController,
-                maxLines: null,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  hintText: 'Enter config file contents...',
+          : _errorMessage != null
+              ? Text('Error: $_errorMessage')
+              : SingleChildScrollView(
+                  child: TextField(
+                    controller: _configController,
+                    maxLines: null,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      hintText: 'Edit lindbergh.conf...',
+                    ),
+                  ),
                 ),
-              ),
-            ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
@@ -77,10 +91,14 @@ class _ConfigEditorDialogState extends State<ConfigEditorDialog> {
         TextButton(
           onPressed: () async {
             await _saveConfig();
-            if (widget.onSave != null) {
-              widget.onSave!(_configController.text);
+            if (_errorMessage == null) {
+              if (widget.onSave != null) {
+                widget.onSave!(_configController.text);
+              }
+              Navigator.pop(context);
+            } else {
+              setState(() {});
             }
-            Navigator.pop(context);
           },
           child: const Text('Save'),
         ),

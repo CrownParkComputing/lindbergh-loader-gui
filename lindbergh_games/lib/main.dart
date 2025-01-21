@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:window_manager/window_manager.dart';
 import 'package:lindbergh_games/data/game_repository.dart';
 import 'package:lindbergh_games/widgets/about_screen.dart';
+import 'package:lindbergh_games/widgets/setup_screen.dart';
 import 'package:lindbergh_games/models/game.dart';
 import 'package:lindbergh_games/utils/game_launcher.dart';
 import 'package:lindbergh_games/widgets/add_game_dialog.dart';
@@ -8,7 +10,31 @@ import 'package:lindbergh_games/widgets/config_editor_dialog.dart';
 import 'package:lindbergh_games/widgets/game_tile.dart';
 import 'package:lindbergh_games/widgets/icon_view.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await windowManager.ensureInitialized();
+
+  WindowOptions windowOptions = const WindowOptions(
+    titleBarStyle: TitleBarStyle.hidden,
+    size: Size(800, 600),
+    minimumSize: Size(400, 300),
+    center: true,
+  );
+
+  try {
+    await windowManager.waitUntilReadyToShow(windowOptions, () async {
+      await windowManager.show();
+      await windowManager.focus();
+    });
+  } catch (e) {
+    print('Window manager error: $e');
+    // Fallback to basic window management
+    await windowManager.setSize(const Size(800, 600));
+    await windowManager.center();
+    await windowManager.show();
+    await windowManager.focus();
+  }
+
   runApp(const MyApp());
 }
 
@@ -18,7 +44,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Lindbergh Games',
+      title: 'Lindbergh Loader GUI',
       theme: ThemeData(
         brightness: Brightness.light,
         primarySwatch: Colors.blue,
@@ -115,18 +141,21 @@ class _MyHomePageState extends State<MyHomePage> {
         title: const Text('Lindbergh Games'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () async {
-              final game = await showDialog<Game>(
-                context: context,
-                builder: (context) => AddGameDialog(
-                  games: games,
+            icon: const Icon(Icons.close),
+            onPressed: () => windowManager.close(),
+            tooltip: 'Close',
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SetupScreen(),
                 ),
               );
-              if (game != null) {
-                _addGame(game);
-              }
             },
+            tooltip: 'Setup',
           ),
           IconButton(
             icon: const Icon(Icons.info_outline),
@@ -138,6 +167,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
               );
             },
+            tooltip: 'About',
           ),
         ],
       ),
@@ -149,14 +179,31 @@ class _MyHomePageState extends State<MyHomePage> {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 IconButton(
+                  icon: const Icon(Icons.add),
+                  onPressed: () async {
+                    final game = await showDialog<Game>(
+                      context: context,
+                      builder: (context) => AddGameDialog(
+                        games: games,
+                      ),
+                    );
+                    if (game != null) {
+                      _addGame(game);
+                    }
+                  },
+                  tooltip: 'Add Game',
+                ),
+                IconButton(
                   icon: const Icon(Icons.view_list),
                   onPressed: () => setState(() => _isIconView = false),
                   color: _isIconView ? Colors.grey : Theme.of(context).primaryColor,
+                  tooltip: 'List View',
                 ),
                 IconButton(
                   icon: const Icon(Icons.grid_view),
                   onPressed: () => setState(() => _isIconView = true),
                   color: _isIconView ? Theme.of(context).primaryColor : Colors.grey,
+                  tooltip: 'Grid View',
                 ),
               ],
             ),
@@ -175,7 +222,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         game: game,
                         onLaunch: () => _launchGame(game),
                         onTest: () => _launchTestMenu(game),
-                        onEditConfig: () async {
+                        onEdit: () async {
                           await showDialog(
                             context: context,
                             builder: (context) => ConfigEditorDialog(

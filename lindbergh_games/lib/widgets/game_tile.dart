@@ -1,11 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:lindbergh_games/models/game.dart';
-import 'package:lindbergh_games/widgets/game_settings_dialog.dart';
 
 class GameTile extends StatelessWidget {
   final Game game;
-  final VoidCallback onEditConfig;
+  final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onLaunch;
   final VoidCallback onTest;
@@ -13,7 +12,7 @@ class GameTile extends StatelessWidget {
   const GameTile({
     super.key,
     required this.game,
-    required this.onEditConfig,
+    required this.onEdit,
     required this.onDelete,
     required this.onLaunch,
     required this.onTest,
@@ -29,35 +28,24 @@ class GameTile extends StatelessWidget {
                 width: 48,
                 height: 48,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return const Icon(Icons.sports_esports);
-                },
               )
-            : const Icon(Icons.sports_esports),
+            : const Icon(Icons.videogame_asset),
         title: Text(game.name),
-        subtitle: Text('ID: ${game.id} - DVP: ${game.dvp}'),
+        subtitle: Text(game.executablePath ?? 'No executable selected'),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
               icon: const Icon(Icons.play_arrow),
-              onPressed: game.isConfigured ? onLaunch : null,
-              tooltip: 'Launch Game',
-            ),
-            IconButton(
-              icon: const Icon(Icons.bug_report),
-              onPressed: game.isConfigured ? onTest : null,
-              tooltip: 'Launch Test Menu',
+              onPressed: game.executablePath != null ? onLaunch : null,
             ),
             IconButton(
               icon: const Icon(Icons.settings),
-              onPressed: onEditConfig,
-              tooltip: 'Edit lindbergh.conf',
+              onPressed: onEdit,
             ),
             IconButton(
               icon: const Icon(Icons.delete),
               onPressed: onDelete,
-              tooltip: 'Delete Game',
             ),
           ],
         ),

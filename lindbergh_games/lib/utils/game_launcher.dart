@@ -1,40 +1,43 @@
 import 'dart:io';
-import 'dart:convert';
-import 'package:lindbergh_games/models/game.dart';
+import 'package:path/path.dart' as path;
+import '../models/game.dart';
 
 class GameLauncher {
-  static Future<void> _launchProcess(Game game, List<String> arguments) async {
+  static Future<void> launchGame(Game game) async {
     if (game.executablePath == null || game.executablePath!.isEmpty) {
-      throw Exception('Executable path not configured');
+      throw Exception('Executable path not set for ${game.name}');
     }
 
-    final executable = File(game.executablePath!);
-    if (!executable.existsSync()) {
-      throw Exception('Executable file does not exist');
-    }
+    // Get the directory containing the executable
+    final executableDir = path.dirname(game.executablePath!);
 
     final process = await Process.start(
-      executable.path,
-      arguments,
-      workingDirectory: game.workingDirectory,
+      './lindbergh',
+      [],
+      workingDirectory: executableDir,
+      runInShell: true,
     );
 
-    process.stderr.transform(utf8.decoder).listen((data) {
-      print('Game Error: $data');
-    });
-
-    process.stdout.transform(utf8.decoder).listen((data) {
-      print('Game Output: $data');
-    });
-
-    await process.exitCode;
-  }
-
-  static Future<void> launchGame(Game game) async {
-    await _launchProcess(game, []);
+    process.stdout.listen((data) => print(String.fromCharCodes(data)));
+    process.stderr.listen((data) => print(String.fromCharCodes(data)));
   }
 
   static Future<void> launchTestMenu(Game game) async {
-    await _launchProcess(game, ['-t']);
+    if (game.executablePath == null || game.executablePath!.isEmpty) {
+      throw Exception('Executable path not set for ${game.name}');
+    }
+
+    // Get the directory containing the executable
+    final executableDir = path.dirname(game.executablePath!);
+
+    final process = await Process.start(
+      './lindbergh',
+      ['-t'],
+      workingDirectory: executableDir,
+      runInShell: true,
+    );
+
+    process.stdout.listen((data) => print(String.fromCharCodes(data)));
+    process.stderr.listen((data) => print(String.fromCharCodes(data)));
   }
 }
