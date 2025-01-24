@@ -4,17 +4,14 @@ import '../models/game.dart';
 
 class GameLauncher {
   static Future<void> launchGame(Game game) async {
-    if (game.executablePath == null || game.executablePath!.isEmpty) {
+    if (game.executablePath.isEmpty) {
       throw Exception('Executable path not set for ${game.name}');
     }
-
-    // Get the directory containing the executable
-    final executableDir = path.dirname(game.executablePath!);
 
     final process = await Process.start(
       './lindbergh',
       [],
-      workingDirectory: executableDir,
+      workingDirectory: game.workingDirectory,
       runInShell: true,
     );
 
@@ -23,17 +20,14 @@ class GameLauncher {
   }
 
   static Future<void> launchTestMenu(Game game) async {
-    if (game.executablePath == null || game.executablePath!.isEmpty) {
+    if (game.executablePath.isEmpty) {
       throw Exception('Executable path not set for ${game.name}');
     }
 
-    // Get the directory containing the executable
-    final executableDir = path.dirname(game.executablePath!);
-
     final process = await Process.start(
       './lindbergh',
-      ['-t'],
-      workingDirectory: executableDir,
+      ['--test'],
+      workingDirectory: game.workingDirectory,
       runInShell: true,
     );
 

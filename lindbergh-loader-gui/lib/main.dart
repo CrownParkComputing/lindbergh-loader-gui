@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
-import 'package:lindbergh_games/data/game_repository.dart';
-import 'package:lindbergh_games/widgets/about_screen.dart';
-import 'package:lindbergh_games/widgets/setup_screen.dart';
-import 'package:lindbergh_games/models/game.dart';
-import 'package:lindbergh_games/utils/game_launcher.dart';
-import 'package:lindbergh_games/widgets/add_game_dialog.dart';
-import 'package:lindbergh_games/widgets/config_editor_dialog.dart';
-import 'package:lindbergh_games/widgets/game_tile.dart';
-import 'package:lindbergh_games/widgets/icon_view.dart';
+import 'package:lindbergh_loader_gui/data/game_repository.dart';
+import 'package:lindbergh_loader_gui/widgets/about_screen.dart';
+import 'package:lindbergh_loader_gui/widgets/setup_screen.dart';
+import 'package:lindbergh_loader_gui/models/game.dart';
+import 'package:lindbergh_loader_gui/utils/game_launcher.dart';
+import 'package:lindbergh_loader_gui/widgets/add_game_dialog.dart';
+import 'package:lindbergh_loader_gui/widgets/config_editor_dialog.dart';
+import 'package:lindbergh_loader_gui/widgets/game_tile.dart';
+import 'package:lindbergh_loader_gui/widgets/icon_view.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,12 +20,18 @@ void main() async {
     minimumSize: Size(400, 300),
     center: true,
     titleBarStyle: TitleBarStyle.hidden,
+    title: 'Lindbergh Loader',
+    backgroundColor: Colors.transparent,
+    skipTaskbar: false,
+    windowButtonVisibility: false,
   );
 
   await windowManager.waitUntilReadyToShow(windowOptions, () async {
     await windowManager.show();
     await windowManager.focus();
   });
+
+  await windowManager.setIcon('assets/images/sega-logo.png');
 
   runApp(const MyApp());
 }
@@ -35,22 +42,55 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Lindbergh Games',
+      title: 'Lindbergh Loader',
       theme: ThemeData(
-        brightness: Brightness.light,
         primarySwatch: Colors.blue,
+        useMaterial3: true,
       ),
       darkTheme: ThemeData(
         brightness: Brightness.dark,
         primarySwatch: Colors.blue,
-        scaffoldBackgroundColor: Colors.grey[900],
-        cardColor: Colors.grey[800],
-        dialogBackgroundColor: Colors.grey[850],
+        scaffoldBackgroundColor: const Color(0xFF1A1A1A),
+        cardColor: const Color(0xFF2D2D2D),
+        dialogBackgroundColor: const Color(0xFF2D2D2D),
       ),
-      themeMode: ThemeMode.system,
-      home: const MyHomePage(),
+      themeMode: ThemeMode.dark,
+      home: Container(
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: const Color(0xFF3A3A3A),
+            width: 5,
+          ),
+        ),
+        child: const MyHomePage(),
+      ),
     );
   }
+}
+
+enum AppTheme {
+  dark(Color(0xFF2C2C2C), Color(0xFF383838), Colors.blue),
+  light(Color(0xFFFAFAFA), Color(0xFFF0F0F0), Colors.blue),
+  blue(Color(0xFF64B5F6), Color(0xFF90CAF9), Colors.blue),
+  red(Color(0xFFEF9A9A), Color(0xFFFFCDD2), Colors.red),
+  green(Color(0xFF81C784), Color(0xFFA5D6A7), Colors.green);
+
+  final Color backgroundColor;
+  final Color cardColor;
+  final MaterialColor primarySwatch;
+  const AppTheme(this.backgroundColor, this.cardColor, this.primarySwatch);
+}
+
+enum WindowSize {
+  small(600, 400, Icons.phone_android),
+  medium(800, 600, Icons.tablet_android),
+  large(1024, 768, Icons.laptop),
+  xl(1280, 960, Icons.tv);
+
+  final double width;
+  final double height;
+  final IconData icon;
+  const WindowSize(this.width, this.height, this.icon);
 }
 
 class MyHomePage extends StatefulWidget {
@@ -64,19 +104,83 @@ class _MyHomePageState extends State<MyHomePage> with WindowListener {
   late final GameRepository _gameRepository;
   List<Game> games = [];
   bool _isIconView = true;
+  AppTheme _currentTheme = AppTheme.dark;
+  WindowSize _currentSize = WindowSize.medium;
+  late final SharedPreferences _prefs;
+
+  final Map<AppTheme, ThemeData> themes = {
+    AppTheme.dark: ThemeData(
+      brightness: Brightness.dark,
+      primarySwatch: AppTheme.dark.primarySwatch,
+      scaffoldBackgroundColor: AppTheme.dark.backgroundColor,
+      cardColor: AppTheme.dark.cardColor,
+      dialogBackgroundColor: AppTheme.dark.cardColor,
+    ),
+    AppTheme.light: ThemeData(
+      brightness: Brightness.light,
+      primarySwatch: AppTheme.light.primarySwatch,
+      scaffoldBackgroundColor: AppTheme.light.backgroundColor,
+      cardColor: AppTheme.light.cardColor,
+      dialogBackgroundColor: AppTheme.light.cardColor,
+    ),
+    AppTheme.blue: ThemeData(
+      brightness: Brightness.light,
+      primarySwatch: AppTheme.blue.primarySwatch,
+      scaffoldBackgroundColor: AppTheme.blue.backgroundColor,
+      cardColor: AppTheme.blue.cardColor,
+      dialogBackgroundColor: AppTheme.blue.cardColor,
+      textTheme: Typography.material2021().black,
+    ),
+    AppTheme.red: ThemeData(
+      brightness: Brightness.light,
+      primarySwatch: AppTheme.red.primarySwatch,
+      scaffoldBackgroundColor: AppTheme.red.backgroundColor,
+      cardColor: AppTheme.red.cardColor,
+      dialogBackgroundColor: AppTheme.red.cardColor,
+      textTheme: Typography.material2021().black,
+    ),
+    AppTheme.green: ThemeData(
+      brightness: Brightness.light,
+      primarySwatch: AppTheme.green.primarySwatch,
+      scaffoldBackgroundColor: AppTheme.green.backgroundColor,
+      cardColor: AppTheme.green.cardColor,
+      dialogBackgroundColor: AppTheme.green.cardColor,
+      textTheme: Typography.material2021().black,
+    ),
+  };
 
   @override
   void initState() {
     super.initState();
+    _initPrefs();
     windowManager.addListener(this);
     _gameRepository = GameRepository();
     _loadGames();
+    _applyWindowSize();
   }
 
-  @override
-  void dispose() {
-    windowManager.removeListener(this);
-    super.dispose();
+  Future<void> _initPrefs() async {
+    _prefs = await SharedPreferences.getInstance();
+    _loadSettings();
+  }
+
+  void _loadSettings() {
+    setState(() {
+      _isIconView = _prefs.getBool('isIconView') ?? true;
+      _currentTheme = AppTheme.values[_prefs.getInt('themeIndex') ?? 0];
+      _currentSize = WindowSize.values[_prefs.getInt('windowSizeIndex') ?? 1];
+    });
+  }
+
+  void _saveSettings() {
+    _prefs.setBool('isIconView', _isIconView);
+    _prefs.setInt('themeIndex', _currentTheme.index);
+    _prefs.setInt('windowSizeIndex', _currentSize.index);
+  }
+
+  Future<void> _applyWindowSize() async {
+    await windowManager.setSize(Size(_currentSize.width, _currentSize.height));
+    await windowManager.center();
   }
 
   Future<void> _loadGames() async {
@@ -134,111 +238,216 @@ class _MyHomePageState extends State<MyHomePage> with WindowListener {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => windowManager.close(),
-        ),
-        title: const Text('Lindbergh Games'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const SetupScreen(),
-                ),
-              );
-            },
-            tooltip: 'Setup',
-          ),
-          IconButton(
-            icon: const Icon(Icons.info_outline),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const AboutScreen(),
-                ),
-              );
-            },
-            tooltip: 'About',
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
+    return Theme(
+      data: themes[_currentTheme]!,
+      child: Scaffold(
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(kToolbarHeight),
+          child: GestureDetector(
+            onPanStart: (details) => windowManager.startDragging(),
+            child: AppBar(
+              title: Image.asset(
+                'assets/images/sega-logo.png',
+                height: 40,
+                fit: BoxFit.contain,
+              ),
+              centerTitle: true,
+              actions: [
                 IconButton(
-                  icon: const Icon(Icons.add),
-                  onPressed: () async {
-                    final game = await showDialog<Game>(
-                      context: context,
-                      builder: (context) => AddGameDialog(
-                        games: games,
-                      ),
-                    );
-                    if (game != null) {
-                      _addGame(game);
-                    }
-                  },
-                  tooltip: 'Add Game',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.view_list),
-                  onPressed: () => setState(() => _isIconView = false),
-                  color: _isIconView ? Colors.grey : Theme.of(context).primaryColor,
-                  tooltip: 'List View',
-                ),
-                IconButton(
-                  icon: const Icon(Icons.grid_view),
-                  onPressed: () => setState(() => _isIconView = true),
-                  color: _isIconView ? Theme.of(context).primaryColor : Colors.grey,
-                  tooltip: 'Grid View',
+                  icon: const Icon(Icons.close),
+                  onPressed: () => windowManager.close(),
+                  tooltip: 'Exit',
                 ),
               ],
             ),
           ),
-          Expanded(
-            child: _isIconView
-                ? IconView(
-                    games: games,
-                    onPlay: _launchGame,
-                  )
-                : ListView.builder(
-                    itemCount: games.length,
-                    itemBuilder: (context, index) {
-                      final game = games[index];
-                      return GameTile(
-                        game: game,
-                        onLaunch: () => _launchGame(game),
-                        onTest: () => _launchTestMenu(game),
-                        onEdit: () async {
-                          await showDialog(
-                            context: context,
-                            builder: (context) => ConfigEditorDialog(
-                              game: game,
-                              onSave: (newConfig) {
-                                setState(() {
-                                  // Config changes are automatically handled by the game model
-                                });
-                              },
-                            ),
+        ),
+        body: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onPanStart: (details) {
+            windowManager.startDragging();
+          },
+          child: Column(
+            children: [
+              Expanded(
+                child: _isIconView
+                    ? IconView(
+                        games: games,
+                        onPlay: _launchGame,
+                      )
+                    : ListView.builder(
+                        itemCount: games.length,
+                        itemBuilder: (context, index) {
+                          final game = games[index];
+                          return GameTile(
+                            game: game,
+                            onLaunch: () => _launchGame(game),
+                            onTest: () => _launchTestMenu(game),
+                            onEdit: () async {
+                              await showDialog(
+                                context: context,
+                                builder: (context) => ConfigEditorDialog(
+                                  game: game,
+                                  onSave: (newConfig) {
+                                    setState(() {
+                                      // Config changes are automatically handled by the game model
+                                    });
+                                  },
+                                ),
+                              );
+                            },
+                            onDelete: () => _deleteGame(index),
                           );
                         },
-                        onDelete: () => _deleteGame(index),
+                      ),
+              ),
+            ],
+          ),
+        ),
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            border: Border(
+              top: BorderSide(
+                color: Theme.of(context).dividerColor,
+                width: 1,
+              ),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                Tooltip(
+                  message: 'Add New Game',
+                  child: IconButton(
+                    icon: const Icon(Icons.add),
+                    onPressed: () async {
+                      final game = await showDialog<Game>(
+                        context: context,
+                        builder: (context) => AddGameDialog(
+                          games: games,
+                        ),
+                      );
+                      if (game != null) {
+                        _addGame(game);
+                      }
+                    },
+                  ),
+                ),
+                Tooltip(
+                  message: _isIconView ? 'Switch to List View' : 'Switch to Grid View',
+                  child: IconButton(
+                    icon: Icon(_isIconView ? Icons.list : Icons.grid_view),
+                    onPressed: () => _toggleView(),
+                  ),
+                ),
+                DropdownButtonHideUnderline(
+                  child: DropdownButton<AppTheme>(
+                    value: _currentTheme,
+                    icon: const Icon(Icons.palette),
+                    dropdownColor: Theme.of(context).cardColor,
+                    items: AppTheme.values.map((theme) {
+                      return DropdownMenuItem<AppTheme>(
+                        value: theme,
+                        child: Container(
+                          width: 80,
+                          height: 30,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [theme.backgroundColor, theme.cardColor],
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                            ),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: Theme.of(context).dividerColor,
+                              width: 1,
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              theme.name.toUpperCase(),
+                              style: TextStyle(
+                                color: theme == AppTheme.light ? Colors.black : Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: _changeTheme,
+                  ),
+                ),
+                DropdownButtonHideUnderline(
+                  child: DropdownButton<WindowSize>(
+                    value: _currentSize,
+                    icon: const Icon(Icons.aspect_ratio),
+                    dropdownColor: Theme.of(context).cardColor,
+                    items: WindowSize.values.map((size) {
+                      return DropdownMenuItem<WindowSize>(
+                        value: size,
+                        child: Tooltip(
+                          message: '${size.name.toUpperCase()} (${size.width.toInt()}x${size.height.toInt()})',
+                          child: Icon(size.icon),
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: _changeWindowSize,
+                  ),
+                ),
+                Tooltip(
+                  message: 'About',
+                  child: IconButton(
+                    icon: const Icon(Icons.info),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const AboutScreen()),
                       );
                     },
                   ),
+                ),
+              ],
+            ),
           ),
-        ],
+        ),
       ),
     );
+  }
+
+  void _toggleView() {
+    setState(() {
+      _isIconView = !_isIconView;
+      _saveSettings();
+    });
+  }
+
+  void _changeTheme(AppTheme? value) {
+    if (value != null) {
+      setState(() {
+        _currentTheme = value;
+        _saveSettings();
+      });
+    }
+  }
+
+  void _changeWindowSize(WindowSize? value) async {
+    if (value != null) {
+      setState(() {
+        _currentSize = value;
+        _saveSettings();
+      });
+      await _applyWindowSize();
+    }
+  }
+
+  @override
+  void dispose() {
+    _saveSettings();
+    windowManager.removeListener(this);
+    super.dispose();
   }
 }

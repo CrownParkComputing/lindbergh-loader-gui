@@ -2,6 +2,15 @@
 
 This document provides detailed installation instructions for different Linux distributions.
 
+## Quick Install
+
+For automatic installation of dependencies, you can use the provided script:
+```bash
+./install-dependencies.sh
+```
+
+The script will automatically detect your distribution and install the required dependencies. For manual installation or more detailed instructions, continue reading below.
+
 ## Table of Contents
 - [Arch Linux / Manjaro](#arch-linux--manjaro)
 - [Ubuntu / Linux Mint / Pop!_OS](#ubuntu--linux-mint--pop_os)
@@ -10,16 +19,35 @@ This document provides detailed installation instructions for different Linux di
 
 ## Arch Linux / Manjaro
 
-### 1. Install Required Dependencies
-```bash
-# Install 32-bit libraries and NVIDIA dependencies
-sudo pacman -S lib32-nvidia-utils lib32-nvidia-cg-toolkit
-
-# Install Flutter
-sudo pacman -S flutter
+### 1. Enable Multilib Repository
+First, ensure the multilib repository is enabled. Edit `/etc/pacman.conf` and uncomment:
+```ini
+[multilib]
+Include = /etc/pacman.d/mirrorlist
 ```
 
-### 2. Setup Library Directory
+Then update the package database:
+```bash
+sudo pacman -Sy
+```
+
+### 2. Install Required Dependencies
+```bash
+# Install 32-bit libraries and NVIDIA dependencies
+sudo pacman -S \
+    lib32-nvidia-utils \
+    lib32-nvidia-cg-toolkit \
+    flutter
+
+# Install lib32-xerces-c from AUR
+git clone https://aur.archlinux.org/lib32-xerces-c.git
+cd lib32-xerces-c
+makepkg -si
+cd ..
+rm -rf lib32-xerces-c
+```
+
+### 3. Setup Library Directory
 ```bash
 # Create Lindbergh library directory
 sudo mkdir -p /usr/local/lib32/lindbergh

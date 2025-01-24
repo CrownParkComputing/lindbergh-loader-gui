@@ -1,5 +1,5 @@
-name: lindbergh_games
-description: A Linux-only Lindbergh games manager
+name: lindbergh_loader_gui
+description: A Linux-only Lindbergh games manager and loader
 
 publish_to: 'none'
 
@@ -26,3 +26,4 @@ flutter:
   generate: true
   assets:
     - assets/icons/
+    - assets/images/sega-logo.png

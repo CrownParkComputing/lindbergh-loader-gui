@@ -1,8 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:lindbergh_games/models/game.dart';
-import 'package:lindbergh_games/data/default_games.dart';
+import 'package:lindbergh_loader_gui/models/game.dart';
+import 'package:lindbergh_loader_gui/data/default_games.dart';
 import 'package:process_run/shell.dart';
+import 'package:path/path.dart' as path_util;
+import 'package:file_picker/file_picker.dart';
 
 class AddGameDialog extends StatefulWidget {
   final List<Game> games;
@@ -20,34 +22,64 @@ class _AddGameDialogState extends State<AddGameDialog> {
   Game? _selectedGame;
   String? _executablePath;
   String? _iconPath;
-  String? _workingDirectory;
 
   Future<void> _pickGameExecutable() async {
     final shell = Shell();
-    final results = await shell.run('zenity --file-selection --title="Select Game Executable"');
+    final results = await shell.run('zenity --file-selection --title="Select Lindbergh Executable" --file-filter="Lindbergh Executable | lindbergh"');
     if (results.isNotEmpty && results.first.exitCode == 0 && results.first.stdout.isNotEmpty) {
-      setState(() {
-        _executablePath = results.first.stdout.trim();
-      });
-    }
-  }
-
-  Future<void> _pickWorkingDirectory() async {
-    final shell = Shell();
-    final results = await shell.run('zenity --file-selection --directory --title="Select Working Directory"');
-    if (results.isNotEmpty && results.first.exitCode == 0 && results.first.stdout.isNotEmpty) {
-      setState(() {
-        _workingDirectory = results.first.stdout.trim();
-      });
+      final executablePath = results.first.stdout.trim();
+      if (executablePath.endsWith('/lindbergh')) {
+        setState(() {
+          _executablePath = executablePath;
+        });
+      } else {
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (BuildContext context) => AlertDialog(
+              title: const Text('Error'),
+              content: const Text('Please select a valid lindbergh executable'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+        }
+      }
     }
   }
 
   Future<void> _pickIcon() async {
-    final shell = Shell();
-    final results = await shell.run('zenity --file-selection --title="Select Game Icon" --file-filter="Images | *.png *.jpg *.jpeg"');
-    if (results.isNotEmpty && results.first.exitCode == 0 && results.first.stdout.isNotEmpty) {
+    final executableDir = Directory.current.absolute.path;
+    
+    String iconsPath = path_util.join(executableDir, 'assets', 'icons');
+    
+    if (_executablePath != null) {
+      final execDir = path_util.dirname(_executablePath!);
+      final execIconsPath = path_util.join(execDir, 'icons');
+      if (Directory(execIconsPath).existsSync()) {
+        iconsPath = execIconsPath;
+      }
+    }
+
+    if (!Directory(iconsPath).existsSync()) {
+      Directory(iconsPath).createSync(recursive: true);
+    }
+
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif'],
+      dialogTitle: 'Select Game Icon',
+      initialDirectory: iconsPath,
+      lockParentWindow: true,
+    );
+
+    if (result != null) {
       setState(() {
-        _iconPath = results.first.stdout.trim();
+        _iconPath = result.files.single.path;
       });
     }
   }
@@ -55,7 +87,17 @@ class _AddGameDialogState extends State<AddGameDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Add Game'),
+      title: Row(
+        children: [
+          Image.asset(
+            'assets/images/sega-logo.png',
+            height: 30,
+            fit: BoxFit.contain,
+          ),
+          const SizedBox(width: 8),
+          const Text('Add Game'),
+        ],
+      ),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -88,12 +130,7 @@ class _AddGameDialogState extends State<AddGameDialog> {
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _pickGameExecutable,
-              child: const Text('Select Game Executable'),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _pickWorkingDirectory,
-              child: const Text('Select Working Directory'),
+              child: const Text('Select Lindbergh Executable'),
             ),
             const SizedBox(height: 16),
             ElevatedButton(
@@ -103,10 +140,6 @@ class _AddGameDialogState extends State<AddGameDialog> {
             const SizedBox(height: 16),
             if (_executablePath != null) ...[
               Text('Executable: $_executablePath'),
-            ],
-            if (_workingDirectory != null) ...[
-              const SizedBox(height: 16),
-              Text('Working Directory: $_workingDirectory'),
             ],
             if (_iconPath != null) ...[
               const SizedBox(height: 16),
@@ -130,12 +163,12 @@ class _AddGameDialogState extends State<AddGameDialog> {
         TextButton(
           onPressed: () {
             if (_selectedGame != null && _executablePath != null) {
-              final game = _selectedGame!.copyWith(
+              final game = Game(
+                name: _selectedGame!.name,
                 executablePath: _executablePath!,
                 iconPath: _iconPath,
-                workingDirectory: _workingDirectory,
               );
-              Navigator.pop(context, game);
+              Navigator.of(context).pop(game);
             }
           },
           child: const Text('Add'),

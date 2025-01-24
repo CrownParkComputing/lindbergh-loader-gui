@@ -1,55 +1,44 @@
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:io';
+import 'package:path/path.dart' as path;
 import '../models/game.dart';
 
 class GameRepository {
-  static const _gamesKey = 'games';
+  static const String _gamesFileName = 'games.json';
+  late final String _gamesFilePath;
+
+  GameRepository() {
+    final dataDir = Directory('data');
+    if (!dataDir.existsSync()) {
+      dataDir.createSync();
+    }
+    _gamesFilePath = path.join('data', _gamesFileName);
+  }
 
   Future<List<Game>> loadGames() async {
-    final prefs = await SharedPreferences.getInstance();
-    final jsonString = prefs.getString(_gamesKey);
-    if (jsonString == null) return [];
-    
-    final List<dynamic> jsonList = json.decode(jsonString);
-    final games = jsonList.map((json) => Game(
-      name: json['name'],
-      executablePath: json['executablePath'],
-      iconPath: json['iconPath'],
-      workingDirectory: json['workingDirectory'],
-    )).toList();
+    try {
+      final file = File(_gamesFilePath);
+      if (!file.existsSync()) {
+        return [];
+      }
 
-    // Migrate existing games if needed
-    final migratedGames = await _migrateGames(games);
-    if (migratedGames != games) {
-      await saveGames(migratedGames);
+      final jsonString = await file.readAsString();
+      final List<dynamic> jsonList = json.decode(jsonString);
+      
+      return jsonList.map((json) => Game.fromJson(json)).toList();
+    } catch (e) {
+      print('Error loading games: $e');
+      return [];
     }
-
-    return migratedGames;
   }
 
   Future<void> saveGames(List<Game> games) async {
-    final prefs = await SharedPreferences.getInstance();
-    final jsonList = games.map((game) => {
-      'name': game.name,
-      'executablePath': game.executablePath,
-      'iconPath': game.iconPath,
-      'workingDirectory': game.workingDirectory,
-    }).toList();
-    await prefs.setString(_gamesKey, json.encode(jsonList));
-  }
-
-  Future<List<Game>> _migrateGames(List<Game> games) async {
-    return games.map((game) {
-      // If working directory isn't set, set it to executable's parent directory
-      if (game.workingDirectory == null || game.workingDirectory!.isEmpty) {
-        final lastSlash = game.executablePath.lastIndexOf('/');
-        if (lastSlash > 0) {
-          return game.copyWith(
-            workingDirectory: game.executablePath.substring(0, lastSlash)
-          );
-        }
-      }
-      return game;
-    }).toList();
+    try {
+      final file = File(_gamesFilePath);
+      final jsonList = games.map((game) => game.toJson()).toList();
+      await file.writeAsString(json.encode(jsonList));
+    } catch (e) {
+      print('Error saving games: $e');
+    }
   }
 }

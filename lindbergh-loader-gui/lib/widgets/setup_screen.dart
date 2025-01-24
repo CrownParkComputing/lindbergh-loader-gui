@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:lindbergh_games/data/core_config_repository.dart';
-import 'package:lindbergh_games/data/core_config.dart';
+import 'package:lindbergh_loader_gui/data/core_config_repository.dart';
+import 'package:lindbergh_loader_gui/data/core_config.dart';
 
 class SetupScreen extends StatefulWidget {
   const SetupScreen({super.key});

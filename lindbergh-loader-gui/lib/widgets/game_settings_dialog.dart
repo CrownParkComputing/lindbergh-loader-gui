@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:process_run/shell.dart';
-import 'package:lindbergh_games/models/game.dart';
+import 'package:lindbergh_loader_gui/models/game.dart';
 
 class GameSettingsDialog extends StatefulWidget {
   final Game game;

@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:lindbergh_games/models/game.dart';
+import 'package:lindbergh_loader_gui/models/game.dart';
 
 class GameTile extends StatelessWidget {
   final Game game;
@@ -35,17 +35,33 @@ class GameTile extends StatelessWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            IconButton(
-              icon: const Icon(Icons.play_arrow),
-              onPressed: game.executablePath != null ? onLaunch : null,
+            Tooltip(
+              message: 'Launch Game',
+              child: IconButton(
+                icon: const Icon(Icons.play_arrow),
+                onPressed: game.executablePath != null ? onLaunch : null,
+              ),
             ),
-            IconButton(
-              icon: const Icon(Icons.settings),
-              onPressed: onEdit,
+            Tooltip(
+              message: 'Test Menu',
+              child: IconButton(
+                icon: const Icon(Icons.build),
+                onPressed: onTest,
+              ),
             ),
-            IconButton(
-              icon: const Icon(Icons.delete),
-              onPressed: onDelete,
+            Tooltip(
+              message: 'Edit Configuration',
+              child: IconButton(
+                icon: const Icon(Icons.settings),
+                onPressed: onEdit,
+              ),
+            ),
+            Tooltip(
+              message: 'Delete Game',
+              child: IconButton(
+                icon: const Icon(Icons.delete),
+                onPressed: onDelete,
+              ),
             ),
           ],
         ),
