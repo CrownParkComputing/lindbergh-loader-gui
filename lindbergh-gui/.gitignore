@@ -1,1 +1,19 @@
- 
+# Build outputs
+**/build/
+**/release/
+release/
+
+# Flutter/Dart specific
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/pubspec.lock
+
+# IDE files
+**/.idea/
+**/.vscode/
+**/*.iml
+
+# System files
+.DS_Store
+Thumbs.db 
