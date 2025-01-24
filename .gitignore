@@ -21,6 +21,9 @@ ui_*.h
 # IDE files
 .vscode/
 .idea/
+*.iml
+*.ipr
+*.iws
 *.user
 *.user.*
 *.sublime-workspace
@@ -31,15 +34,39 @@ ui_*.h
 .directory
 .Trash-*
 *~
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
 
 # Compiled binaries
 lindbergh-core/build/
 lindbergh-gui/build/
 lindbergh-gui/_build/
+lindbergh-loader/build/
+lindbergh-loader-gui/build/
+lindbergh-loader-gui/_build/
 
 # Dependencies
 libs/
 external/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+
+# Flutter/Dart specific
+**/doc/api/
+**/ios/Flutter/.last_build_id
+/android/app/debug
+/android/app/profile
+/android/app/release
+app.*.symbols
+app.*.map.json
 
 # Logs and temporary files
 *.log

@@ -1,92 +1,49 @@
-name: Build and Release
+name: Build
 
 on:
   push:
     branches: [ main ]
-    tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
 
 jobs:
-  build:
+  build-linux:
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v3
-    
-    - name: Install Qt and Build Dependencies
+
+    # Install system dependencies
+    - name: Install Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y \
-          build-essential \
-          cmake \
-          qt6-base-dev \
-          qt6-base-dev-tools \
-          libgl1-mesa-dev \
-          libxrandr-dev \
-          libxinerama-dev \
-          libxcursor-dev \
-          libxi-dev \
-          libx11-dev \
-          libxext-dev \
-          libxfixes-dev \
-          libxrender-dev \
-          libxcb1-dev \
-          libx11-xcb-dev \
-          libxcb-glx0-dev \
-          libxcb-keysyms1-dev \
-          libxcb-image0-dev \
-          libxcb-shm0-dev \
-          libxcb-icccm4-dev \
-          libxcb-sync0-dev \
-          libxcb-xfixes0-dev \
-          libxcb-shape0-dev \
-          libxcb-randr0-dev \
-          libxcb-render-util0-dev \
-          libxcb-util0-dev \
-          libxcb-xinerama0-dev \
-          libxcb-xkb-dev \
-          libxkbcommon-dev \
-          libxkbcommon-x11-dev
+        sudo apt-get install -y lib32-nvidia-utils lib32-nvidia-cg-toolkit cmake build-essential
 
-    - name: Configure CMake
-      run: |
-        cmake -B build -S gui-qt \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_INSTALL_PREFIX=/usr
-
-    - name: Build
-      run: cmake --build build --config Release -j$(nproc)
-
-    - name: Create AppImage
-      if: startsWith(github.ref, 'refs/tags/')
-      run: |
-        # Install linuxdeploy and Qt plugin
-        wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
-        wget https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
-        chmod +x linuxdeploy*.AppImage
-        
-        # Create AppDir structure
-        mkdir -p AppDir/usr/bin
-        cp build/lindbergh-gui AppDir/usr/bin/
-        
-        # Create desktop file
-        cat > AppDir/lindbergh-loader.desktop << EOF
-        [Desktop Entry]
-        Type=Application
-        Name=Lindbergh Loader
-        Exec=lindbergh-gui
-        Icon=lindbergh-loader
-        Categories=Game;Emulator;
-        EOF
-        
-        # Create AppImage
-        ./linuxdeploy-x86_64.AppImage --appdir AppDir --plugin qt --output appimage
-
-    - name: Create Release
-      if: startsWith(github.ref, 'refs/tags/')
-      uses: softprops/action-gh-release@v1
+    # Setup Flutter
+    - uses: subosito/flutter-action@v2
       with:
-        files: Lindbergh_Loader*.AppImage
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        flutter-version: '3.x'
+        channel: 'stable'
+    
+    # Build GUI
+    - name: Build GUI
+      run: |
+        cd lindbergh-loader-gui
+        flutter pub get
+        flutter build linux
+
+    # Create release artifact
+    - name: Create Release Bundle
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: |
+        mkdir -p release
+        cp -r lindbergh-loader-gui/build/linux/x64/release/bundle/* release/
+        tar -czf lindbergh-gui-linux.tar.gz release/
+
+    # Upload artifact
+    - name: Upload Release Artifact
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      uses: actions/upload-artifact@v3
+      with:
+        name: lindbergh-gui-linux
+        path: lindbergh-gui-linux.tar.gz
