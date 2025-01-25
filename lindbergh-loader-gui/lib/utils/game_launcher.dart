@@ -1,37 +1,54 @@
 import 'dart:io';
+import 'dart:async' show unawaited;
 import 'package:path/path.dart' as path;
 import '../models/game.dart';
 
 class GameLauncher {
   static Future<void> launchGame(Game game) async {
-    if (game.executablePath.isEmpty) {
-      throw Exception('Executable path not set for ${game.name}');
+    if (game.path.isEmpty) {
+      throw Exception('No executable path specified');
     }
 
-    final process = await Process.start(
-      './lindbergh',
-      [],
-      workingDirectory: game.workingDirectory,
-      runInShell: true,
-    );
-
-    process.stdout.listen((data) => print(String.fromCharCodes(data)));
-    process.stderr.listen((data) => print(String.fromCharCodes(data)));
+    try {
+      final process = await Process.start(
+        game.path,
+        [],
+        workingDirectory: game.workingDirectory,
+        mode: ProcessStartMode.detached,
+      );
+      
+      // Don't wait for the process to complete
+      unawaited(process.exitCode);
+      
+      // Give the process a moment to start
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+    } catch (e) {
+      throw Exception('Failed to launch game: $e');
+    }
   }
 
   static Future<void> launchTestMenu(Game game) async {
-    if (game.executablePath.isEmpty) {
-      throw Exception('Executable path not set for ${game.name}');
+    if (game.path.isEmpty) {
+      throw Exception('No executable path specified');
     }
 
-    final process = await Process.start(
-      './lindbergh',
-      ['--test'],
-      workingDirectory: game.workingDirectory,
-      runInShell: true,
-    );
-
-    process.stdout.listen((data) => print(String.fromCharCodes(data)));
-    process.stderr.listen((data) => print(String.fromCharCodes(data)));
+    try {
+      final process = await Process.start(
+        game.path,
+        ['--test-menu'],
+        workingDirectory: game.workingDirectory,
+        mode: ProcessStartMode.detached,
+      );
+      
+      // Don't wait for the process to complete
+      unawaited(process.exitCode);
+      
+      // Give the process a moment to start
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+    } catch (e) {
+      throw Exception('Failed to launch test menu: $e');
+    }
   }
 }

@@ -27,11 +27,10 @@ class GameTile extends StatelessWidget {
                 File(game.iconPath!),
                 width: 48,
                 height: 48,
-                fit: BoxFit.cover,
               )
-            : const Icon(Icons.videogame_asset),
+            : const Icon(Icons.gamepad),
         title: Text(game.name),
-        subtitle: Text(game.executablePath ?? 'No executable selected'),
+        subtitle: Text(game.path ?? 'No executable selected'),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -39,7 +38,7 @@ class GameTile extends StatelessWidget {
               message: 'Launch Game',
               child: IconButton(
                 icon: const Icon(Icons.play_arrow),
-                onPressed: game.executablePath != null ? onLaunch : null,
+                onPressed: game.path != null ? onLaunch : null,
               ),
             ),
             Tooltip(

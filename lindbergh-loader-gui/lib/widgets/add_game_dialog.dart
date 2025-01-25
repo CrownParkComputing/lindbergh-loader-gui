@@ -5,13 +5,16 @@ import 'package:lindbergh_loader_gui/data/default_games.dart';
 import 'package:process_run/shell.dart';
 import 'package:path/path.dart' as path_util;
 import 'package:file_picker/file_picker.dart';
+import 'package:path/path.dart' as path;
 
 class AddGameDialog extends StatefulWidget {
   final List<Game> games;
+  final Function(Game) onAdd;
   
   const AddGameDialog({
     super.key,
     required this.games,
+    required this.onAdd,
   });
 
   @override
@@ -22,33 +25,17 @@ class _AddGameDialogState extends State<AddGameDialog> {
   Game? _selectedGame;
   String? _executablePath;
   String? _iconPath;
+  String? _testMenuPath;
+  String? _configPath;
 
   Future<void> _pickGameExecutable() async {
-    final shell = Shell();
-    final results = await shell.run('zenity --file-selection --title="Select Lindbergh Executable" --file-filter="Lindbergh Executable | lindbergh"');
-    if (results.isNotEmpty && results.first.exitCode == 0 && results.first.stdout.isNotEmpty) {
-      final executablePath = results.first.stdout.trim();
-      if (executablePath.endsWith('/lindbergh')) {
-        setState(() {
-          _executablePath = executablePath;
-        });
-      } else {
-        if (mounted) {
-          showDialog(
-            context: context,
-            builder: (BuildContext context) => AlertDialog(
-              title: const Text('Error'),
-              content: const Text('Please select a valid lindbergh executable'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('OK'),
-                ),
-              ],
-            ),
-          );
-        }
-      }
+    final result = await FilePicker.platform.pickFiles();
+    if (result != null) {
+      setState(() {
+        final file = File(result.files.single.path!);
+        _executablePath = file.path;
+        _configPath = path.join(path.dirname(_executablePath!), 'lindbergh.conf');
+      });
     }
   }
 
@@ -82,6 +69,21 @@ class _AddGameDialogState extends State<AddGameDialog> {
         _iconPath = result.files.single.path;
       });
     }
+  }
+
+  void _onSave() {
+    if (_selectedGame == null || _executablePath == null) return;
+
+    final game = Game(
+      name: _selectedGame!.name,
+      path: _executablePath!,
+      configPath: _configPath,
+      iconPath: _iconPath,
+      testMenuPath: _testMenuPath,
+    );
+
+    widget.onAdd(game);
+    Navigator.pop(context);
   }
 
   @override
@@ -161,16 +163,7 @@ class _AddGameDialogState extends State<AddGameDialog> {
           child: const Text('Cancel'),
         ),
         TextButton(
-          onPressed: () {
-            if (_selectedGame != null && _executablePath != null) {
-              final game = Game(
-                name: _selectedGame!.name,
-                executablePath: _executablePath!,
-                iconPath: _iconPath,
-              );
-              Navigator.of(context).pop(game);
-            }
-          },
+          onPressed: _onSave,
           child: const Text('Add'),
         ),
       ],

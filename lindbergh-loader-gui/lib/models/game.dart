@@ -1,27 +1,45 @@
 class Game {
   final String name;
-  final String executablePath;
+  final String path;
+  final String? configPath;
   final String? iconPath;
+  final String? testMenuPath;
 
   Game({
     required this.name,
-    required this.executablePath,
+    required this.path,
+    this.configPath,
     this.iconPath,
+    this.testMenuPath,
   });
 
-  String get workingDirectory => executablePath.substring(0, executablePath.lastIndexOf('/'));
+  String get workingDirectory {
+    if (path.isEmpty) return '';
+    // Go up TWO levels - one from 'lindbergh' and one from 'lindbergh/' or 'elf/'
+    return path.substring(0, path.lastIndexOf('/')).substring(0, path.substring(0, path.lastIndexOf('/')).lastIndexOf('/'));
+  }
 
-  String get configFilePath => '$workingDirectory/lindbergh.conf';
+  String get effectiveConfigPath {
+    if (configPath != null && configPath!.isNotEmpty) {
+      return configPath!;
+    }
+    // Put lindbergh.conf in disk0/ directory
+    return path.isEmpty ? '' : '${workingDirectory}/lindbergh.conf';
+  }
 
   Game copyWith({
     String? name,
-    String? executablePath,
+    String? path,
+    String? configPath,
     String? iconPath,
+    String? testMenuPath,
   }) {
     return Game(
       name: name ?? this.name,
-      executablePath: executablePath ?? this.executablePath,
+      path: path ?? this.path,
+      configPath: configPath ?? this.configPath,
       iconPath: iconPath ?? this.iconPath,
+      testMenuPath: testMenuPath ?? this.testMenuPath,
     );
   }
 
@@ -29,8 +47,10 @@ class Game {
   factory Game.fromJson(Map<String, dynamic> json) {
     return Game(
       name: json['name'] as String,
-      executablePath: json['executablePath'] as String,
+      path: json['path'] as String,
+      configPath: json['configPath'] as String?,
       iconPath: json['iconPath'] as String?,
+      testMenuPath: json['testMenuPath'] as String?,
     );
   }
 
@@ -38,8 +58,10 @@ class Game {
   Map<String, dynamic> toJson() {
     return {
       'name': name,
-      'executablePath': executablePath,
+      'path': path,
+      'configPath': configPath,
       'iconPath': iconPath,
+      'testMenuPath': testMenuPath,
     };
   }
 }

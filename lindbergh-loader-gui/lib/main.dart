@@ -10,10 +10,31 @@ import 'package:lindbergh_loader_gui/widgets/config_editor_dialog.dart';
 import 'package:lindbergh_loader_gui/widgets/game_tile.dart';
 import 'package:lindbergh_loader_gui/widgets/icon_view.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:lindbergh_loader_gui/widgets/bin_processor_screen.dart';
+import 'package:lindbergh_loader_gui/services/update_service.dart';
+import 'package:lindbergh_loader_gui/data/core_config_repository.dart';
+import 'package:lindbergh_loader_gui/widgets/update_screen.dart';
+import 'package:lindbergh_loader_gui/widgets/welcome_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await windowManager.ensureInitialized();
+
+  // Check for updates on launch
+  try {
+    final updateInfo = await UpdateService.checkForUpdates();
+    final config = await CoreConfigRepository().loadConfig();
+    if (config.corePath != null) {
+      final hasConfChanges = await UpdateService.isConfFileChanged(
+        '${config.corePath}/lindbergh.conf'
+      );
+      if (hasConfChanges) {
+        // Show update notification
+      }
+    }
+  } catch (e) {
+    print('Error checking for updates: $e');
+  }
 
   WindowOptions windowOptions = const WindowOptions(
     size: Size(800, 600),
@@ -55,15 +76,7 @@ class MyApp extends StatelessWidget {
         dialogBackgroundColor: const Color(0xFF2D2D2D),
       ),
       themeMode: ThemeMode.dark,
-      home: Container(
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: const Color(0xFF3A3A3A),
-            width: 5,
-          ),
-        ),
-        child: const MyHomePage(),
-      ),
+      home: const MyHomePage(),
     );
   }
 }
@@ -107,6 +120,7 @@ class _MyHomePageState extends State<MyHomePage> with WindowListener {
   AppTheme _currentTheme = AppTheme.dark;
   WindowSize _currentSize = WindowSize.medium;
   late final SharedPreferences _prefs;
+  bool _showWelcome = true;
 
   final Map<AppTheme, ThemeData> themes = {
     AppTheme.dark: ThemeData(
@@ -149,6 +163,42 @@ class _MyHomePageState extends State<MyHomePage> with WindowListener {
     ),
   };
 
+  void showUpdateNotification(Map<String, dynamic> updateInfo, bool hasConfChanges) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Updates Available'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('New version available: ${updateInfo['version']}'),
+            if (hasConfChanges)
+              const Text('\nConfiguration updates are also available.'),
+            const SizedBox(height: 16),
+            Text(updateInfo['body'] ?? 'No release notes available'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Later'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const UpdateScreen()),
+              );
+            },
+            child: const Text('Update Now'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -157,6 +207,8 @@ class _MyHomePageState extends State<MyHomePage> with WindowListener {
     _gameRepository = GameRepository();
     _loadGames();
     _applyWindowSize();
+    _checkForUpdates();
+    _checkWelcomeScreen();
   }
 
   Future<void> _initPrefs() async {
@@ -236,8 +288,54 @@ class _MyHomePageState extends State<MyHomePage> with WindowListener {
     );
   }
 
+  Future<void> _checkForUpdates() async {
+    try {
+      final updateInfo = await UpdateService.checkForUpdates();
+      final config = await CoreConfigRepository().loadConfig();
+      
+      if (config.corePath != null) {
+        final hasConfChanges = await UpdateService.isConfFileChanged(
+          '${config.corePath}/lindbergh.conf'
+        );
+        
+        // Only show notification if there are actual updates or config changes
+        if (mounted && (updateInfo['version'] != null || hasConfChanges)) {
+          // Don't show update notification if there are no assets to download
+          if (!updateInfo['hasAssets'] && !hasConfChanges) {
+            print('New version found but no assets available');
+            return;
+          }
+          showUpdateNotification(updateInfo, hasConfChanges);
+        }
+      }
+    } catch (e) {
+      print('Error checking for updates: $e');
+      // Don't show error to user, just log it
+    }
+  }
+
+  Future<void> _checkWelcomeScreen() async {
+    final hasShownWelcome = _prefs.getBool('hasShownWelcome') ?? false;
+    setState(() {
+      _showWelcome = !hasShownWelcome;
+    });
+  }
+
+  void _hideWelcomeScreen() {
+    setState(() {
+      _showWelcome = false;
+    });
+    _prefs.setBool('hasShownWelcome', true);
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_showWelcome) {
+      return WelcomeScreen(
+        onContinue: _hideWelcomeScreen,
+      );
+    }
+
     return Theme(
       data: themes[_currentTheme]!,
       child: Scaffold(
@@ -248,7 +346,7 @@ class _MyHomePageState extends State<MyHomePage> with WindowListener {
             child: AppBar(
               title: Image.asset(
                 'assets/images/sega-logo.png',
-                height: 40,
+                height: 20,
                 fit: BoxFit.contain,
               ),
               centerTitle: true,
@@ -323,15 +421,16 @@ class _MyHomePageState extends State<MyHomePage> with WindowListener {
                   child: IconButton(
                     icon: const Icon(Icons.add),
                     onPressed: () async {
-                      final game = await showDialog<Game>(
+                      await showDialog(
                         context: context,
                         builder: (context) => AddGameDialog(
                           games: games,
+                          onAdd: (game) async {
+                            await _addGame(game);
+                            Navigator.pop(context);
+                          },
                         ),
                       );
-                      if (game != null) {
-                        _addGame(game);
-                      }
                     },
                   ),
                 ),
@@ -406,6 +505,30 @@ class _MyHomePageState extends State<MyHomePage> with WindowListener {
                       Navigator.push(
                         context,
                         MaterialPageRoute(builder: (context) => const AboutScreen()),
+                      );
+                    },
+                  ),
+                ),
+                Tooltip(
+                  message: 'Check for Updates',
+                  child: IconButton(
+                    icon: const Icon(Icons.system_update),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const UpdateScreen()),
+                      );
+                    },
+                  ),
+                ),
+                Tooltip(
+                  message: 'Process Bin File',
+                  child: IconButton(
+                    icon: const Icon(Icons.file_present),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const BinProcessorScreen()),
                       );
                     },
                   ),
